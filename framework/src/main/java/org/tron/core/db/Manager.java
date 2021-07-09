@@ -149,7 +149,9 @@ import org.tron.protos.Protocol.Transaction.Contract;
 import org.tron.protos.Protocol.TransactionInfo;
 import org.tron.protos.contract.BalanceContract;
 
-
+/**
+ * 数据库管理Manager
+ */
 @Slf4j(topic = "DB")
 @Component
 public class Manager {
@@ -193,6 +195,7 @@ public class Manager {
   private boolean isRunTriggerCapsuleProcessThread = true;
   private BlockingQueue<TransactionCapsule> pushTransactionQueue = new LinkedBlockingQueue<>();
   @Getter
+  //维护一个长度为TX_ID_CACHE_SIZE  的缓存交易cache
   private Cache<Sha256Hash, Boolean> transactionIdCache = CacheBuilder
       .newBuilder().maximumSize(TX_ID_CACHE_SIZE).recordStats().build();
   @Autowired
@@ -689,6 +692,7 @@ public class Manager {
   }
 
   /**
+   * 推送交易数据到等待队列
    * push transaction into pending.
    */
   public boolean pushTransaction(final TransactionCapsule trx)

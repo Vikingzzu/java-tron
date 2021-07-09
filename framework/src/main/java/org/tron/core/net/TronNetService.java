@@ -22,6 +22,10 @@ import org.tron.core.net.service.AdvService;
 import org.tron.core.net.service.SyncService;
 import org.tron.protos.Protocol.ReasonCode;
 
+/**
+ * tron 网络 服务
+ * p2p网络功能管理service 消息广播 eg
+ */
 @Slf4j(topic = "net")
 @Component
 public class TronNetService {

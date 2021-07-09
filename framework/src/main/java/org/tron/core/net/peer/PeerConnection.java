@@ -27,6 +27,9 @@ import org.tron.core.net.TronNetDelegate;
 import org.tron.core.net.service.AdvService;
 import org.tron.core.net.service.SyncService;
 
+/**
+ * p2p网络节点连接信息
+ */
 @Slf4j(topic = "net")
 @Component
 @Scope("prototype")
@@ -91,9 +94,11 @@ public class PeerConnection extends Channel {
   private Set<BlockId> syncBlockInProcess = new HashSet<>();
   @Setter
   @Getter
+  //代表本节点的区块信息不是最新的  需要从对方节点同步区块
   private volatile boolean needSyncFromPeer = true;
   @Setter
   @Getter
+  //代表本节点对区块是最新的    对方节点需要同步本节点的区块
   private volatile boolean needSyncFromUs = true;
 
   public void setBlockBothHave(BlockId blockId) {

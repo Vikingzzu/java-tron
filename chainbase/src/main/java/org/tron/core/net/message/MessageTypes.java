@@ -6,7 +6,7 @@ import java.util.Map;
 public enum MessageTypes {
 
   FIRST(0x00),
-
+  //交易消息
   TRX(0x01),
 
   BLOCK(0x02),

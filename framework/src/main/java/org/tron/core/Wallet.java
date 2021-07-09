@@ -479,8 +479,11 @@ public class Wallet {
     TransactionCapsule trx = new TransactionCapsule(signedTransaction);
     trx.setTime(System.currentTimeMillis());
     try {
+      //封装交易消息类型
       Message message = new TransactionMessage(signedTransaction.toByteArray());
+      //非节点孤立状态
       if (minEffectiveConnection != 0) {
+        //net 代表 判断存活节点
         if (tronNetDelegate.getActivePeer().isEmpty()) {
           logger
               .warn("Broadcast transaction {} has failed, no connection.", trx.getTransactionId());
@@ -489,10 +492,11 @@ public class Wallet {
               .build();
         }
 
+        //拿到建立连接 且不需要同步区块的 连接总数
         int count = (int) tronNetDelegate.getActivePeer().stream()
             .filter(p -> !p.isNeedSyncFromUs() && !p.isNeedSyncFromPeer())
             .count();
-
+        //如果连接的节点小于设置的最小节点 则该节点不可信（可能数据不是最新的，连接样本太少） 直接返回 不广播数据
         if (count < minEffectiveConnection) {
           String info = "effective connection:" + count + " lt minEffectiveConnection:"
               + minEffectiveConnection;
@@ -503,23 +507,31 @@ public class Wallet {
         }
       }
 
+      //判断 当前节点的数据库 等待队列长度，是否太长（太长说明该节点处理的交易比较多）
       if (dbManager.isTooManyPending()) {
         logger
             .warn("Broadcast transaction {} has failed, too many pending.", trx.getTransactionId());
         return builder.setResult(false).setCode(response_code.SERVER_BUSY).build();
       }
 
+      //判断 当前交易的TransactionId 是否在 cache中已经存在   存在说明已经处理过这笔交易
       if (dbManager.getTransactionIdCache().getIfPresent(trx.getTransactionId()) != null) {
         logger.warn("Broadcast transaction {} has failed, it already exists.",
             trx.getTransactionId());
         return builder.setResult(false).setCode(response_code.DUP_TRANSACTION_ERROR).build();
       } else {
+        // 不存在的话  把当前交易的TransactionId 放到缓存中
         dbManager.getTransactionIdCache().put(trx.getTransactionId(), true);
       }
+
+      // 判断数据库配置是否支持虚拟机
       if (chainBaseManager.getDynamicPropertiesStore().supportVM()) {
+        // TODO reset something?
         trx.resetResult();
       }
+      //交易数据 到等待队列
       dbManager.pushTransaction(trx);
+      //p2p网络广播该交易消息
       tronNetService.broadcast(message);
       logger.info("Broadcast transaction {} successfully.", trx.getTransactionId());
       return builder.setResult(true).setCode(response_code.SUCCESS).build();

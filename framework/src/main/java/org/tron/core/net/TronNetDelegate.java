@@ -53,6 +53,10 @@ import org.tron.core.net.peer.PeerConnection;
 import org.tron.core.store.WitnessScheduleStore;
 import org.tron.protos.Protocol.Inventory.InventoryType;
 
+/**
+ * tron 网络 代表
+ * 维护p2p网络节点信息
+ */
 @Slf4j(topic = "net")
 @Component
 public class TronNetDelegate {
