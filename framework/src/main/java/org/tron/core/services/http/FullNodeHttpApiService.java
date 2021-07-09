@@ -341,7 +341,9 @@ public class FullNodeHttpApiService implements Service {
       server.setHandler(context);
 
       context.addServlet(new ServletHolder(getAccountServlet), "/wallet/getaccount");
+      //1:wallet发起交易
       context.addServlet(new ServletHolder(transferServlet), "/wallet/createtransaction");
+      //2:wallet发起广播
       context.addServlet(new ServletHolder(broadcastServlet), "/wallet/broadcasttransaction");
       context.addServlet(new ServletHolder(transactionSignServlet), "/wallet/gettransactionsign");
       context.addServlet(new ServletHolder(updateAccountServlet), "/wallet/updateaccount");

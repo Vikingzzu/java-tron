@@ -89,27 +89,35 @@ public class TronNetService {
   protected void onMessage(PeerConnection peer, TronMessage msg) {
     try {
       switch (msg.getType()) {
+        //异步 区块 链
         case SYNC_BLOCK_CHAIN:
           syncBlockChainMsgHandler.processMessage(peer, msg);
           break;
+          // 区块 链 清单
         case BLOCK_CHAIN_INVENTORY:
           chainInventoryMsgHandler.processMessage(peer, msg);
           break;
+          //清单
         case INVENTORY:
           inventoryMsgHandler.processMessage(peer, msg);
           break;
+          //取回 环境 数据
         case FETCH_INV_DATA:
           fetchInvDataMsgHandler.processMessage(peer, msg);
           break;
+          //区块
         case BLOCK:
           blockMsgHandler.processMessage(peer, msg);
           break;
+          //交易
         case TRXS:
           transactionsMsgHandler.processMessage(peer, msg);
           break;
+          //PBFT(共识算法) 提交 消息
         case PBFT_COMMIT_MSG:
           pbftDataSyncHandler.processMessage(peer, msg);
           break;
+          //其他消息
         default:
           throw new P2pException(TypeEnum.NO_SUCH_MESSAGE, msg.getType().toString());
       }

@@ -255,6 +255,7 @@ public class Util {
     JSONObject jsonTransaction = JSONObject.parseObject(strTransaction);
     JSONObject rawData = jsonTransaction.getJSONObject("raw_data");
     JSONArray contracts = new JSONArray();
+    //获取合同字段
     JSONArray rawContractArray = rawData.getJSONArray("contract");
 
     for (int i = 0; i < rawContractArray.size(); i++) {

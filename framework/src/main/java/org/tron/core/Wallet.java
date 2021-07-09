@@ -471,6 +471,7 @@ public class Wallet {
   }
 
   /**
+   * wallet交易发起广播
    * Broadcast a transaction.
    */
   public GrpcAPI.Return broadcastTransaction(Transaction signedTransaction) {
