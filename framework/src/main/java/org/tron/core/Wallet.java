@@ -483,7 +483,7 @@ public class Wallet {
       Message message = new TransactionMessage(signedTransaction.toByteArray());
       //非节点孤立状态
       if (minEffectiveConnection != 0) {
-        //net 代表 判断存活节点
+        //net-代表 判断存活的连接数
         if (tronNetDelegate.getActivePeer().isEmpty()) {
           logger
               .warn("Broadcast transaction {} has failed, no connection.", trx.getTransactionId());
@@ -507,7 +507,7 @@ public class Wallet {
         }
       }
 
-      //判断 当前节点的数据库 等待队列长度，是否太长（太长说明该节点处理的交易比较多）
+      //判断 当前节点的消息队列 等待队列长度，是否太长（太长说明该节点处理的交易比较多）
       if (dbManager.isTooManyPending()) {
         logger
             .warn("Broadcast transaction {} has failed, too many pending.", trx.getTransactionId());
@@ -529,7 +529,7 @@ public class Wallet {
         // TODO reset something?
         trx.resetResult();
       }
-      //交易数据 到等待队列
+      //交易数据 推送到等待队列
       dbManager.pushTransaction(trx);
       //p2p网络广播该交易消息
       tronNetService.broadcast(message);

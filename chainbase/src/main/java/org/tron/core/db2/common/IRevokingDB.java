@@ -7,6 +7,7 @@ import java.util.Set;
 import org.tron.core.db2.core.Chainbase;
 import org.tron.core.exception.ItemNotFoundException;
 
+//可回滚的db 操作接口封装
 public interface IRevokingDB extends Iterable<Map.Entry<byte[], byte[]>> {
 
   void put(byte[] key, byte[] newValue);

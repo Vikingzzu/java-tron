@@ -342,6 +342,7 @@ message Transaction {
       AccountPermissionUpdateContract = 46;
       ClearABIContract = 48;
       UpdateBrokerageContract = 49;
+      //屏蔽 交易 合同
       ShieldedTransferContract = 51;
       MarketSellAssetContract = 52;
       MarketCancelOrderContract = 53;

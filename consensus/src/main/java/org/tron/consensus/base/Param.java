@@ -53,6 +53,7 @@ public class Param {
     return param;
   }
 
+  //矿工
   public class Miner {
 
     @Getter
@@ -65,6 +66,7 @@ public class Param {
 
     @Getter
     @Setter
+    //见证-地址
     private ByteString witnessAddress;
 
     public Miner(byte[] privateKey, ByteString privateKeyAddress, ByteString witnessAddress) {

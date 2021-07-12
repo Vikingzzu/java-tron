@@ -110,10 +110,12 @@ public class PeerConnection extends Channel {
     return advInvRequest.isEmpty() && syncBlockRequested.isEmpty() && syncChainRequested == null;
   }
 
+  //发送tcp消息到队列
   public void sendMessage(Message message) {
     msgQueue.sendMessage(message);
   }
 
+  //发送广播数据（一般为发送区块儿）
   public void fastSend(Message message) {
     msgQueue.fastSend(message);
   }

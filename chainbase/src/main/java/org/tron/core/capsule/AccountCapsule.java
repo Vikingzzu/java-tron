@@ -37,6 +37,10 @@ import org.tron.protos.Protocol.Vote;
 import org.tron.protos.contract.AccountContract.AccountCreateContract;
 import org.tron.protos.contract.AccountContract.AccountUpdateContract;
 
+/**
+ * 用户账户封装操作类
+ * eg：getDefaultPermission  生成默认的交易凭证
+ */
 @Slf4j(topic = "capsule")
 public class AccountCapsule implements ProtoCapsule<Account>, Comparable<AccountCapsule> {
 
@@ -171,11 +175,13 @@ public class AccountCapsule implements ProtoCapsule<Account>, Comparable<Account
     this.account = account;
   }
 
+  //根据配置信息生成默认的操作数
   private static ByteString getActiveDefaultOperations(
       DynamicPropertiesStore dynamicPropertiesStore) {
     return ByteString.copyFrom(dynamicPropertiesStore.getActiveDefaultOperations());
   }
 
+  //根据 address 生成默认的owner 交易凭证
   public static Permission createDefaultOwnerPermission(ByteString address) {
     Key.Builder key = Key.newBuilder();
     key.setAddress(address);
@@ -192,6 +198,7 @@ public class AccountCapsule implements ProtoCapsule<Account>, Comparable<Account
     return owner.build();
   }
 
+  ////根据 address 生成默认的active 交易凭证
   public static Permission createDefaultActivePermission(ByteString address,
       DynamicPropertiesStore dynamicPropertiesStore) {
     Key.Builder key = Key.newBuilder();
@@ -204,6 +211,7 @@ public class AccountCapsule implements ProtoCapsule<Account>, Comparable<Account
     active.setPermissionName("active");
     active.setThreshold(1);
     active.setParentId(0);
+    //设置操作数  （根据配置信息生成）
     active.setOperations(getActiveDefaultOperations(dynamicPropertiesStore));
     active.addKeys(key);
 
@@ -226,6 +234,7 @@ public class AccountCapsule implements ProtoCapsule<Account>, Comparable<Account
     return active.build();
   }
 
+  //根据owner 获取默认的交易凭证
   public static Permission getDefaultPermission(ByteString owner) {
     return createDefaultOwnerPermission(owner);
   }

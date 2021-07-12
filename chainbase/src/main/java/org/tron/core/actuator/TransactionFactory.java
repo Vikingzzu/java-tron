@@ -9,6 +9,10 @@ import org.tron.protos.Protocol.Transaction.Contract.ContractType;
 import org.tron.protos.contract.SmartContractOuterClass.CreateSmartContract;
 import org.tron.protos.contract.SmartContractOuterClass.TriggerSmartContract;
 
+/**
+ * 交易工厂封装类型
+ * eg：TransactionFactory.getContract  根据交易参数类型获取 具体的message type class
+ */
 public class TransactionFactory {
 
   private static Map<ContractType, Class<? extends Actuator>> actuatorMap = new ConcurrentHashMap<>();

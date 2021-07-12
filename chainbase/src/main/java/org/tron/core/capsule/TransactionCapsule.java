@@ -80,6 +80,9 @@ import org.tron.protos.contract.WitnessContract.VoteWitnessContract;
 import org.tron.protos.contract.WitnessContract.WitnessCreateContract;
 import org.tron.protos.contract.WitnessContract.WitnessUpdateContract;
 
+/**
+ * 交易消息封装操作类
+ */
 @Slf4j(topic = "capsule")
 public class TransactionCapsule implements ProtoCapsule<Transaction> {
 
@@ -90,6 +93,7 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
 
   private Transaction transaction;
   @Setter
+  //消息是否已经验签参数
   private boolean isVerified = false;
   @Setter
   @Getter
@@ -188,6 +192,7 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
     transaction = Transaction.newBuilder().setRawData(transactionBuilder.build()).build();
   }
 
+  //获取权重
   public static long getWeight(Permission permission, byte[] address) {
     List<Key> list = permission.getKeysList();
     for (Key key : list) {
@@ -198,10 +203,12 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
     return 0;
   }
 
+  //获取所有sigs的权重和
   public static long checkWeight(Permission permission, List<ByteString> sigs, byte[] hash,
       List<ByteString> approveList)
       throws SignatureException, PermissionException, SignatureFormatException {
     long currentWeight = 0;
+    //签名个数不能大于许可
     if (sigs.size() > permission.getKeysCount()) {
       throw new PermissionException(
           "Signature count is " + (sigs.size()) + " more than key counts of permission : "
@@ -209,26 +216,34 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
     }
     HashMap addMap = new HashMap();
     for (ByteString sig : sigs) {
+      //签名大小不能小于65
       if (sig.size() < 65) {
         throw new SignatureFormatException(
             "Signature size is " + sig.size());
       }
+      //签名base64转换
       String base64 = TransactionCapsule.getBase64FromByteString(sig);
+      //根据签名获取address
       byte[] address = SignUtils
           .signatureToAddress(hash, base64, CommonParameter.getInstance().isECKeyCryptoEngine());
+      //根据address 获取许可权重
       long weight = getWeight(permission, address);
       if (weight == 0) {
         throw new PermissionException(
             ByteArray.toHexString(sig.toByteArray()) + " is signed by " + encode58Check(address)
                 + " but it is not contained of permission.");
       }
+      //不能含有两个相同的签名
       if (addMap.containsKey(base64)) {
         throw new PermissionException(encode58Check(address) + " has signed twice!");
       }
+      //map 添加缓存
       addMap.put(base64, weight);
+      //设置address列表
       if (approveList != null) {
         approveList.add(ByteString.copyFrom(address)); //out put approve list.
       }
+      //添加当前address的权重
       currentWeight += weight;
     }
     return currentWeight;
@@ -287,15 +302,19 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
         .getInstance().isECKeyCryptoEngine(), mergedByte).getBytes();
   }
 
-  // todo mv this static function to capsule util
+  // todo mv this static function to capsule util  可能以后要从本类删除
+  //获取交易消息体的 owner 地址
   public static byte[] getOwner(Transaction.Contract contract) {
     ByteString owner;
     try {
+      //获取交易内容参数
       Any contractParameter = contract.getParameter();
       switch (contract.getType()) {
+        //屏蔽 交易 合同
         case ShieldedTransferContract: {
           ShieldedTransferContract shieldedTransferContract = contractParameter
               .unpack(ShieldedTransferContract.class);
+          //判断交易from地址存在 则返回 from地址
           if (!shieldedTransferContract.getTransparentFromAddress().isEmpty()) {
             owner = shieldedTransferContract.getTransparentFromAddress();
           } else {
@@ -304,14 +323,18 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
           break;
         }
         // todo add other contract
+          //其他类型的交易合同
         default: {
+          //根据交易参数类型获取 具体的message type class
           Class<? extends GeneratedMessageV3> clazz = TransactionFactory
               .getContract(contract.getType());
+          //获取不到则直接返回byte[0]
           if (clazz == null) {
             logger.error("not exist {}", contract.getType());
             return new byte[0];
           }
           GeneratedMessageV3 generatedMessageV3 = contractParameter.unpack(clazz);
+          //根据反射 获取 ownerAddress_ 参数的 值
           owner = ReflectUtils.getFieldValue(generatedMessageV3, OWNER_ADDRESS);
           if (owner == null) {
             logger.error("not exist [{}] field,{}", OWNER_ADDRESS, clazz);
@@ -433,30 +456,44 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
     return signature.toBase64();
   }
 
+  //判断交易内容验签是否通过
   public static boolean validateSignature(Transaction transaction,
       byte[] hash, AccountStore accountStore, DynamicPropertiesStore dynamicPropertiesStore)
       throws PermissionException, SignatureException, SignatureFormatException {
     Transaction.Contract contract = transaction.getRawData().getContractList().get(0);
+    //拿到交易许可id
     int permissionId = contract.getPermissionId();
+    //获取交易消息体的owner地址
     byte[] owner = getOwner(contract);
+    //根据owner地址 总数据库中查询到account信息
     AccountCapsule account = accountStore.get(owner);
+    //交易许可
     Permission permission = null;
+    //查询不到交易对应的account信息
     if (account == null) {
       if (permissionId == 0) {
+        //permissionId为0 则生成默认的owner交易凭证
         permission = AccountCapsule.getDefaultPermission(ByteString.copyFrom(owner));
       }
       if (permissionId == 2) {
+        //permissionId为2 则生成默认的active交易凭证
         permission = AccountCapsule
             .createDefaultActivePermission(ByteString.copyFrom(owner), dynamicPropertiesStore);
       }
     } else {
+      //根据拿到交易许可id拿到交易凭证
       permission = account.getPermissionById(permissionId);
     }
+    //凭证为空则直接返回
     if (permission == null) {
       throw new PermissionException("permission isn't exit");
     }
+    //钱包校验操作许可
     checkPermission(permissionId, permission, contract);
+
+    //获取所有sigs的权重和
     long weight = checkWeight(permission, transaction.getSignatureList(), hash, null);
+    //权重和大于凭证的门槛则验签通过
     if (weight >= permission.getThreshold()) {
       return true;
     }
@@ -580,13 +617,16 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
         .signHash(getRawHash().getBytes())));
     this.transaction = this.transaction.toBuilder().addSignature(sig).build();
   }
-  
+
+  //校验凭证
   private static void checkPermission(int permissionId, Permission permission, Transaction.Contract contract) throws PermissionException {
+    //permissionId 不为 0 则 permission type必须为Active
     if (permissionId != 0) {
       if (permission.getType() != PermissionType.Active) {
         throw new PermissionException("Permission type is error");
       }
       //check operations
+      //钱包校验操作许可
       if (!checkPermissionOperations(permission, contract)) {
         throw new PermissionException("Permission denied");
       }
@@ -594,24 +634,30 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
   }
 
   /**
+   * 校验消息签名公共方法
    * validate signature
    */
   public boolean validatePubSignature(AccountStore accountStore,
       DynamicPropertiesStore dynamicPropertiesStore)
       throws ValidateSignatureException {
+    //判断交易是否已经验签
     if (!isVerified) {
+      //判断签名的个数不能小于等于0
       if (this.transaction.getSignatureCount() <= 0
               || this.transaction.getRawData().getContractCount() <= 0) {
         throw new ValidateSignatureException("miss sig or contract");
       }
+      //判断签名的个数不能大于配置的 TOTAL_SIGN_NUM
       if (this.transaction.getSignatureCount() > dynamicPropertiesStore
               .getTotalSignNum()) {
         throw new ValidateSignatureException("too many signatures");
       }
 
+      //获取消息体bytes内容
       byte[] hash = this.getRawHash().getBytes();
 
       try {
+        //判断交易内容验签是否通过
         if (!validateSignature(this.transaction, hash, accountStore, dynamicPropertiesStore)) {
           isVerified = false;
           throw new ValidateSignatureException("sig error");
@@ -626,20 +672,28 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
   }
 
   /**
+   * 校验消息签名
    * validate signature
    */
   public boolean validateSignature(AccountStore accountStore,
       DynamicPropertiesStore dynamicPropertiesStore) throws ValidateSignatureException {
+    //判断交易是否已经验签
     if (!isVerified) {
       //Do not support multi contracts in one transaction
       Transaction.Contract contract = this.getInstance().getRawData().getContract(0);
+      //判断消息类型 不是 屏蔽交易消息
       if (contract.getType() != ContractType.ShieldedTransferContract) {
+        //校验消息签名
         validatePubSignature(accountStore, dynamicPropertiesStore);
       } else {  //ShieldedTransfer
+        //消息类型是屏蔽交易消息
+        //获取交易消息体的 owner 地址
         byte[] owner = getOwner(contract);
         if (!ArrayUtils.isEmpty(owner)) { //transfer from transparent address
+          //校验消息签名
           validatePubSignature(accountStore, dynamicPropertiesStore);
         } else { //transfer from shielded address
+          //获取不到owner地址 且 签名个数大于0 则验签失败
           if (this.transaction.getSignatureCount() > 0) {
             throw new ValidateSignatureException("there should be no signatures signed by "
                     + "transparent address when transfer from shielded address");

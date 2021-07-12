@@ -55,8 +55,11 @@ public class ApplicationImpl implements Application {
    * start up the app.
    */
   public void startup() {
+    //启动p2p 广播 网络相关
     tronNetService.start();
+    //启动共识相关
     consensusService.start();
+    //启动业务监控相关
     MetricsUtil.init();
   }
 

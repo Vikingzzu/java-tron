@@ -22,8 +22,12 @@ import org.tron.protos.contract.SmartContractOuterClass.SmartContract.ABI;
 import org.tron.protos.contract.SmartContractOuterClass.SmartContract.ABI.Entry.StateMutabilityType;
 import org.tron.protos.contract.SmartContractOuterClass.TriggerSmartContract;
 
+/**
+ * 钱包操作类
+ */
 public class WalletUtil {
 
+  //钱包校验操作许可
   public static boolean checkPermissionOperations(Permission permission, Contract contract)
       throws PermissionException {
     ByteString operations = permission.getOperations();

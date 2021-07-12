@@ -701,39 +701,50 @@ public class Manager {
       TooBigTransactionException, TransactionExpirationException,
       ReceiptCheckErrException, VMIllegalException, TooBigTransactionResultException {
 
+    // 判断消息类型是屏蔽消息 且 full-node节点配置为 允许屏蔽消息配置 时直接返回不做处理
     if (isShieldedTransaction(trx.getInstance()) && !Args.getInstance()
         .isFullNodeAllowShieldedTransactionArgs()) {
       return true;
     }
 
+    //推送交易队列添加交易消息
     pushTransactionQueue.add(trx);
 
     try {
+      //交易消息验签
       if (!trx.validateSignature(chainBaseManager.getAccountStore(),
           chainBaseManager.getDynamicPropertiesStore())) {
         throw new ValidateSignatureException("trans sig validate failed");
       }
 
+
       synchronized (this) {
+        //判断交易是屏蔽交易  且 shieldedTransInPendingMaxCounts个数 大于配置时 返回false
         if (isShieldedTransaction(trx.getInstance())
             && shieldedTransInPendingCounts.get() >= shieldedTransInPendingMaxCounts) {
           return false;
         }
+
         if (!session.valid()) {
           session.setValue(revokingStore.buildSession());
         }
-
+        //建立数据库连接
         try (ISession tmpSession = revokingStore.buildSession()) {
+          // TODO ?
           processTransaction(trx, null);
           trx.setTrxTrace(null);
+          //交易消息添加到 pendingTransactions 队列
           pendingTransactions.add(trx);
+          // TODO ?
           tmpSession.merge();
         }
+        //判断交易是屏蔽交易  shieldedTransInPendingMaxCounts+1
         if (isShieldedTransaction(trx.getInstance())) {
           shieldedTransInPendingCounts.incrementAndGet();
         }
       }
     } finally {
+      //删除交易队列添加交易消息
       pushTransactionQueue.remove(trx);
     }
     return true;
@@ -1130,6 +1141,7 @@ public class Manager {
   }
 
   /**
+   * 处理交易过程
    * Process transaction.
    */
   public TransactionInfo processTransaction(final TransactionCapsule trxCap, BlockCapsule blockCap)
@@ -1351,9 +1363,11 @@ public class Manager {
     return false;
   }
 
+  // 判断消息类型是屏蔽消息（判断消息体中第一个参数类型为 ShieldedTransferContract = 51）
   private boolean isShieldedTransaction(Transaction transaction) {
     Contract contract = transaction.getRawData().getContract(0);
     switch (contract.getType()) {
+      //屏蔽 交易 合同
       case ShieldedTransferContract: {
         return true;
       }

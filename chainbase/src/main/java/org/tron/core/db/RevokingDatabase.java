@@ -4,7 +4,7 @@ import org.tron.core.db2.ISession;
 import org.tron.core.db2.common.IRevokingDB;
 import org.tron.core.db2.core.Chainbase;
 import org.tron.core.exception.RevokingStoreIllegalStateException;
-
+//可回滚的数据库 操作方法
 public interface RevokingDatabase {
 
   ISession buildSession();

@@ -24,6 +24,7 @@ public class ReflectUtils {
     ReflectionUtils.setField(field, target, value);
   }
 
+  //根据反射获取方法或参数
   public static <T> T invokeMethod(Object target, String methodName) {
     Method method = ReflectionUtils.findMethod(target.getClass(), methodName);
     ReflectionUtils.makeAccessible(method);

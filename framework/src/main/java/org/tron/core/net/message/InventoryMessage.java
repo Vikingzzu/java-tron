@@ -9,7 +9,7 @@ import org.tron.protos.Protocol;
 import org.tron.protos.Protocol.Inventory;
 import org.tron.protos.Protocol.Inventory.InventoryType;
 
-
+//Inventory-库存message  包含 block 和 trx
 public class InventoryMessage extends TronMessage {
 
   protected Inventory inv;

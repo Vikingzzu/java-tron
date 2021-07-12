@@ -18,6 +18,9 @@ import org.tron.core.capsule.WitnessCapsule;
 import org.tron.core.config.args.Args;
 import org.tron.core.store.WitnessStore;
 
+/**
+ * 共识相关代码service
+ */
 @Slf4j(topic = "consensus")
 @Component
 public class ConsensusService {
@@ -36,6 +39,7 @@ public class ConsensusService {
 
   private CommonParameter parameter = Args.getInstance();
 
+  //启动service
   public void start() {
     Param param = Param.getInstance();
     param.setEnable(parameter.isWitness());

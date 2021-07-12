@@ -14,6 +14,9 @@ import org.tron.core.store.VotesStore;
 import org.tron.core.store.WitnessScheduleStore;
 import org.tron.core.store.WitnessStore;
 
+/**
+ * 共识 配置类
+ */
 @Slf4j(topic = "consensus")
 @Component
 public class ConsensusDelegate {

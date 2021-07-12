@@ -317,6 +317,7 @@ public class CommonParameter {
   // @Setter
   // public long allowShieldedTransaction; //committee parameter
   // full node used this parameter to close shielded transaction
+  //full node 节点 是否屏蔽交易 参数
   @Getter
   @Setter
   public boolean fullNodeAllowShieldedTransactionArgs;

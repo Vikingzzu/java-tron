@@ -6,6 +6,9 @@ import org.tron.common.crypto.ECKey.ECDSASignature;
 import org.tron.common.crypto.sm2.SM2;
 import org.tron.common.crypto.sm2.SM2.SM2Signature;
 
+/**
+ * 签名工具类
+ */
 public class SignUtils {
 
   public static SignInterface getGeneratedRandomSign(
@@ -23,6 +26,7 @@ public class SignUtils {
     return SM2.fromPrivate(privKeyBytes);
   }
 
+  //根据签名获取address
   public static byte[] signatureToAddress(
       byte[] messageHash, String signatureBase64, boolean isECKeyCryptoEngine)
       throws SignatureException {

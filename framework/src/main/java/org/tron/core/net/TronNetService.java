@@ -82,6 +82,7 @@ public class TronNetService {
     logger.info("TronNetService closed successfully.");
   }
 
+  //广播消息
   public void broadcast(Message msg) {
     advService.broadcast(msg);
   }

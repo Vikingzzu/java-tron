@@ -41,13 +41,14 @@ public class MessageQueue {
   private BlockingQueue<Message> msgQueue = new LinkedBlockingQueue<>();
   private ScheduledFuture<?> sendTask;
 
-
+  //启动消费队列的线程池
   public void activate(ChannelHandlerContext ctx) {
 
     this.ctx = ctx;
 
     sendMsgFlag = true;
 
+    //启动消费requestQueue 的定时任务单线程
     sendTask = sendTimer.scheduleAtFixedRate(() -> {
       try {
         if (sendMsgFlag) {
@@ -58,6 +59,7 @@ public class MessageQueue {
       }
     }, 10, 10, TimeUnit.MILLISECONDS);
 
+    //启动一步线程消费msgQueue
     sendMsgThread = new Thread(() -> {
       while (sendMsgFlag) {
         try {
@@ -77,6 +79,7 @@ public class MessageQueue {
         }
       }
     });
+    //设置线程名称并启动
     sendMsgThread.setName("sendMsgThread-" + ctx.channel().remoteAddress());
     sendMsgThread.start();
   }
@@ -85,6 +88,7 @@ public class MessageQueue {
     this.channel = channel;
   }
 
+  //直接发送
   public void fastSend(Message msg) {
     logger.info("Fast send to {}, {} ", ctx.channel().remoteAddress(), msg);
     ctx.writeAndFlush(msg.getSendData()).addListener((ChannelFutureListener) future -> {
@@ -94,20 +98,28 @@ public class MessageQueue {
     });
   }
 
+  //发送tcp消息到队列中
   public boolean sendMessage(Message msg) {
     long now = System.currentTimeMillis();
+    //ping消息 1分钟内最多发送1次  不能距上次发送消息时间小于10s
     if (msg instanceof PingMessage) {
       if (now - sendTime < 10_000 && now - sendPing < 60_000) {
         return false;
       }
       sendPing = now;
     }
+    //消息记录日志
     if (needToLog(msg)) {
       logger.info("Send to {}, {} ", ctx.channel().remoteAddress(), msg);
     }
+
+    //添加统计数据
     channel.getNodeStatistics().messageStatistics.addTcpOutMessage(msg);
+    //添加业务监控代码
     MetricsUtil.meterMark(MetricsKey.NET_TCP_OUT_TRAFFIC, msg.getSendData().readableBytes());
+
     sendTime = System.currentTimeMillis();
+    //根据不同的AnswerMessage 放入到不同的Queue里
     if (msg.getAnswerMessage() != null) {
       requestQueue.add(new MessageRoundTrip(msg));
     } else {
@@ -131,6 +143,7 @@ public class MessageQueue {
     }
   }
 
+  //关闭线程池
   public void close() {
     sendMsgFlag = false;
     if (sendTask != null && !sendTask.isCancelled()) {
@@ -147,6 +160,7 @@ public class MessageQueue {
     }
   }
 
+  //ping pong 交易 和 共识 消息不记录日志
   private boolean needToLog(Message msg) {
     if (msg instanceof PingMessage
         || msg instanceof PongMessage
@@ -163,6 +177,7 @@ public class MessageQueue {
     return true;
   }
 
+  //消费requestQueue队列数据
   private void send() {
     MessageRoundTrip rt = requestQueue.peek();
     if (!sendMsgFlag || rt == null) {

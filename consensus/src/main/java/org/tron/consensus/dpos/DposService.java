@@ -55,14 +55,18 @@ public class DposService implements ConsensusInterface {
   @Getter
   private volatile boolean enable;
   @Getter
+  //最小-参与-费用
   private int minParticipationRate;
   @Getter
+  // 生产区块儿超时率
   private int blockProduceTimeoutPercent;
   @Getter
+  //创世区块儿时间
   private long genesisBlockTime;
   @Getter
   private BlockHandle blockHandle;
   @Getter
+  //创世块
   private GenesisBlock genesisBlock;
   @Getter
   private Map<ByteString, Miner> miners = new HashMap<>();
@@ -76,6 +80,7 @@ public class DposService implements ConsensusInterface {
     this.blockHandle = param.getBlockHandle();
     this.genesisBlock = param.getGenesisBlock();
     this.genesisBlockTime = Long.parseLong(param.getGenesisBlock().getTimestamp());
+    //初始化矿工地址列表
     param.getMiners().forEach(miner -> miners.put(miner.getWitnessAddress(), miner));
 
     dposTask.setDposService(this);
@@ -83,6 +88,7 @@ public class DposService implements ConsensusInterface {
     stateManager.setDposService(this);
     maintenanceManager.setDposService(this);
 
+    //判断配置的 latest_block_header_number 是否为0
     if (consensusDelegate.getLatestBlockHeaderNumber() == 0) {
       List<ByteString> witnesses = new ArrayList<>();
       consensusDelegate.getAllWitnesses().forEach(witnessCapsule ->
