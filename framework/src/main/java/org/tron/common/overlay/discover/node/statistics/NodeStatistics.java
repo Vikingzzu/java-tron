@@ -23,6 +23,9 @@ import lombok.Getter;
 import org.tron.core.config.args.Args;
 import org.tron.protos.Protocol.ReasonCode;
 
+/**
+ * node节点的扩展统计类
+ */
 public class NodeStatistics {
 
   public static final int REPUTATION_PREDEFINED = 100000;
@@ -53,6 +56,7 @@ public class NodeStatistics {
     reputation = new Reputation(this);
   }
 
+  //node节点对应的声誉分数
   public int getReputation() {
     int score = 0;
     if (!isReputationPenalized()) {

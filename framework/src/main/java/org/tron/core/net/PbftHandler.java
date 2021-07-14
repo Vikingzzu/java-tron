@@ -50,14 +50,20 @@ public class PbftHandler extends SimpleChannelInboundHandler<PbftMessage> {
     Lock lock = striped.get(key);
     try {
       lock.lock();
+      //key有缓存则不处理
       if (msgCache.getIfPresent(key) != null) {
         return;
       }
+      //校验消息
       if (!pbftManager.verifyMsg(msg)) {
         throw new P2pException(P2pException.TypeEnum.BAD_MESSAGE, msg.toString());
       }
+      //入缓存
       msgCache.put(key, true);
+      //传播共识消息
       forwardMessage(msg);
+
+      //处理具体的业务逻辑 TODO （此处业务逻辑比较复杂）
       pbftManager.doAction(msg);
     } finally {
       lock.unlock();
@@ -65,6 +71,7 @@ public class PbftHandler extends SimpleChannelInboundHandler<PbftMessage> {
 
   }
 
+  //传播共识消息
   public void forwardMessage(PbftBaseMessage message) {
     if (syncPool == null) {
       return;

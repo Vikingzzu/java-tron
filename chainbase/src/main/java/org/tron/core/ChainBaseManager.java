@@ -292,6 +292,7 @@ public class ChainBaseManager {
     return dynamicPropertiesStore.getLatestBlockHeaderTimestamp();
   }
 
+  //初始化生成初始块儿
   public void initGenesis() {
     genesisBlock = BlockUtil.newGenesisBlockCapsule();
   }
@@ -317,6 +318,7 @@ public class ChainBaseManager {
     }
   }
 
+  //查看主链中是否含有blockId
   public boolean containBlockInMainChain(BlockId blockId) {
     try {
       return getBlockStore().get(blockId.getBytes()) != null;
@@ -360,6 +362,7 @@ public class ChainBaseManager {
     }
   }
 
+  //获取初始BlockId
   public BlockId getGenesisBlockId() {
     return getGenesisBlock().getBlockId();
   }

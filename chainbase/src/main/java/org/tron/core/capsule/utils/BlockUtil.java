@@ -29,9 +29,12 @@ public class BlockUtil {
   /**
    * create genesis block from transactions.
    */
+  //通过交易信息生成一个起始块儿
   public static BlockCapsule newGenesisBlockCapsule() {
+    //根据配置文件参数生成起始块儿
     GenesisBlock genesisBlockArg = CommonParameter.getInstance()
         .getGenesisBlock();
+    //根据配置文件拿到初始化交易
     List<Transaction> transactionList =
         genesisBlockArg.getAssets().stream()
             .map(key -> TransactionUtil.newGenesisTransaction(key.getAddress(), key.getBalance()))
@@ -44,7 +47,9 @@ public class BlockUtil {
 
     BlockCapsule blockCapsule = new BlockCapsule(timestamp, parentHash, number, transactionList);
 
+    //设置交易hash值
     blockCapsule.setMerkleRoot();
+
     blockCapsule.setWitness(
         "A new system must allow existing systems to be linked together without "
             + "requiring any central control or coordination");

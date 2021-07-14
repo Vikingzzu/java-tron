@@ -69,6 +69,7 @@ public class Constant {
   public static final String GENESIS_BLOCK = "genesis.block";
   public static final String GENESIS_BLOCK_TIMESTAMP = "genesis.block.timestamp";
   public static final String GENESIS_BLOCK_PARENTHASH = "genesis.block.parentHash";
+  //配置默认的账户
   public static final String GENESIS_BLOCK_ASSETS = "genesis.block.assets";
   public static final String GENESIS_BLOCK_WITNESSES = "genesis.block.witnesses";
 

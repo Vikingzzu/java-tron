@@ -24,6 +24,7 @@ public class TronNetHandler extends SimpleChannelInboundHandler<TronMessage> {
   @Override
   public void channelRead0(final ChannelHandlerContext ctx, TronMessage msg) throws Exception {
     msgQueue.receivedMessage(msg);
+    //处理接收到的各种不同类型的消息
     tronNetService.onMessage(peer, msg);
   }
 

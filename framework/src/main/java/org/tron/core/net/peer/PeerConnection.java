@@ -82,12 +82,15 @@ public class PeerConnection extends Channel {
       .maximumSize(2 * NetConstants.SYNC_FETCH_BATCH_NUM).recordStats().build();
   @Setter
   @Getter
+  //us需要同步的的block列表 从小打到 有序排列
   private Deque<BlockId> syncBlockToFetch = new ConcurrentLinkedDeque<>();
   @Setter
   @Getter
+  //请求区块具体数据的Block集合
   private Map<BlockId, Long> syncBlockRequested = new ConcurrentHashMap<>();
   @Setter
   @Getter
+  //储存当前peer 同步摘要内容信息
   private Pair<Deque<BlockId>, Long> syncChainRequested = null;
   @Setter
   @Getter
@@ -120,23 +123,33 @@ public class PeerConnection extends Channel {
     msgQueue.fastSend(message);
   }
 
+  //Connection建立连接
   public void onConnect() {
     long headBlockNum = tronNetDelegate.getHeadBlockId().getNum();
     long peerHeadBlockNum = getHelloMessage().getHeadBlockId().getNum();
 
+    //判断HelloMessage中的head头区块儿num 大于 数据库主链中的head头区块儿num 则说明需要同步区块儿
     if (peerHeadBlockNum > headBlockNum) {
+      //需要从对方同步区块儿 peer=true  us=false
       needSyncFromUs = false;
+      //设置channel 状态 需要从对方同步区块儿 SYNCING
       setTronState(TronState.SYNCING);
+
+      //发起区块儿同步
       syncService.startSync(this);
     } else {
+      //不需要从对方同步区块儿 peer=false
       needSyncFromPeer = false;
+      //如果区块儿num相等则不需要互相同步 us=false   否则的话说明对方需要从我们这同步区块儿 us=true
       if (peerHeadBlockNum == headBlockNum) {
         needSyncFromUs = false;
       }
+      //设置channel 状态 对方需要从本节点同步区块儿 SYNC_COMPLETED
       setTronState(TronState.SYNC_COMPLETED);
     }
   }
 
+  //Connection关闭连接
   public void onDisconnect() {
     syncService.onDisconnect(this);
     advService.onDisconnect(this);

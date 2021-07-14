@@ -30,6 +30,7 @@ import org.tron.core.net.peer.PeerConnection;
 @Component
 public class SyncPool {
 
+  //维护正在连接的节点
   private final List<PeerConnection> activePeers = Collections
       .synchronizedList(new ArrayList<>());
   private final AtomicInteger passivePeersCount = new AtomicInteger(0);
@@ -133,31 +134,45 @@ public class SyncPool {
     return peers;
   }
 
+  //channel建立连接
   public synchronized void onConnect(Channel peer) {
     PeerConnection peerConnection = (PeerConnection) peer;
+    //如果当前channel 不在活跃连接中（activePeers） 则执行逻辑加入activePeers
     if (!activePeers.contains(peerConnection)) {
+      //判断节点的活跃状态并统计
       if (!peerConnection.isActive()) {
         passivePeersCount.incrementAndGet();
       } else {
         activePeersCount.incrementAndGet();
       }
+
+      //把当前Connection加入活跃的连接中
       activePeers.add(peerConnection);
+
+      //根据Connection的ping 延迟排序
       activePeers
           .sort(Comparator.comparingDouble(
               c -> c.getNodeStatistics().pingMessageLatency.getAvg()));
+      //Connection建立连接
       peerConnection.onConnect();
     }
   }
 
+  //channel关闭连接
   public synchronized void onDisconnect(Channel peer) {
     PeerConnection peerConnection = (PeerConnection) peer;
+    //如果当前channel在活跃的连接 则删除当前channel
     if (activePeers.contains(peerConnection)) {
+      //判断节点的活跃状态并统计
       if (!peerConnection.isActive()) {
         passivePeersCount.decrementAndGet();
       } else {
         activePeersCount.decrementAndGet();
       }
+
+      //活跃连接中删除当前Connection
       activePeers.remove(peerConnection);
+      //Connection关闭连接
       peerConnection.onDisconnect();
     }
   }

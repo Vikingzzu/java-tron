@@ -62,8 +62,11 @@ public class TransactionsMsgHandler implements TronMsgHandler {
 
   @Override
   public void processMessage(PeerConnection peer, TronMessage msg) throws P2pException {
+    //封装成TransactionsMessage 交易消息
     TransactionsMessage transactionsMessage = (TransactionsMessage) msg;
+    //消息校验
     check(peer, transactionsMessage);
+
     for (Transaction trx : transactionsMessage.getTransactions().getTransactionsList()) {
       int type = trx.getRawData().getContract(0).getType().getNumber();
       if (type == ContractType.TriggerSmartContract_VALUE
@@ -78,7 +81,9 @@ public class TransactionsMsgHandler implements TronMsgHandler {
     }
   }
 
+  //消息校验
   private void check(PeerConnection peer, TransactionsMessage msg) throws P2pException {
+    //遍历所有的消息
     for (Transaction trx : msg.getTransactions().getTransactionsList()) {
       Item item = new Item(new TransactionMessage(trx).getMessageId(), InventoryType.TRX);
       if (!peer.getAdvInvRequest().containsKey(item)) {

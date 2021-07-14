@@ -99,6 +99,7 @@ public class FastForward {
     }
   }
 
+  //校验hello消息
   public boolean checkHelloMessage(HelloMessage message, Channel channel) {
     if (!parameter.isFastForward()
         || channelManager.getTrustNodes().getIfPresent(channel.getInetAddress()) != null) {
@@ -107,7 +108,7 @@ public class FastForward {
 
     Protocol.HelloMessage msg = message.getHelloMessage();
 
-    // todo, just to solve the compatibility problem
+    // todo, just to solve the compatibility problem  解决兼容性问题
     if (msg.getAddress() == null || msg.getAddress().isEmpty()) {
       logger.info("HelloMessage from {}, address is empty.", channel.getInetAddress());
       return true;

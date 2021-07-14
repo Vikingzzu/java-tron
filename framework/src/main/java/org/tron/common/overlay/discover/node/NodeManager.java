@@ -37,6 +37,9 @@ import org.tron.core.config.args.Args;
 import org.tron.core.metrics.MetricsKey;
 import org.tron.core.metrics.MetricsUtil;
 
+/**
+ * p2p连接node管理类
+ */
 @Slf4j(topic = "discover")
 @Component
 public class NodeManager implements EventHandler {
@@ -52,6 +55,7 @@ public class NodeManager implements EventHandler {
 
   private NodeTable table;
   private Node homeNode;
+  //缓存p2p连接nodeHandler  key：node对应address的地址加端口  value: nodeHandler
   private Map<String, NodeHandler> nodeHandlerMap = new ConcurrentHashMap<>();
   private List<Node> bootNodes = new ArrayList<>();
 
@@ -168,26 +172,34 @@ public class NodeManager implements EventHandler {
     return getKey(new InetSocketAddress(n.getHost(), n.getPort()));
   }
 
+  //拼接address地址端口字符串
   private String getKey(InetSocketAddress address) {
     InetAddress inetAddress = address.getAddress();
     return (inetAddress == null ? address.getHostString() : inetAddress.getHostAddress()) + ":"
         + address.getPort();
   }
 
+  //获取node对应的NodeHandler 存在则取出 不存在则创建
   public NodeHandler getNodeHandler(Node n) {
+    //拼接address地址端口字符串
     String key = getKey(n);
     NodeHandler ret = nodeHandlerMap.get(key);
     if (ret == null) {
+      //nodeHandlerMap缓存缩容逻辑
       trimTable();
       ret = new NodeHandler(n, this);
+      //新node 入缓存
       nodeHandlerMap.put(key, ret);
     } else if (ret.getNode().isDiscoveryNode() && !n.isDiscoveryNode()) {
+      //map里存的是伪造节点  但node不是伪造节点
       ret.setNode(n);
     }
     return ret;
   }
 
+  //nodeHandlerMap缓存缩容逻辑
   private void trimTable() {
+    //判断map的大小大于 3000 则清楚p2p版本不一致的node handler
     if (nodeHandlerMap.size() > NODES_TRIM_THRESHOLD) {
       nodeHandlerMap.values().forEach(handler -> {
         if (!handler.getNode().isConnectible(Args.getInstance().getNodeP2pVersion())) {
@@ -195,6 +207,7 @@ public class NodeManager implements EventHandler {
         }
       });
     }
+    ////判断map的大小还是大于 3000  则根据node 的商誉分数排序  清除map直到 2000
     if (nodeHandlerMap.size() > NODES_TRIM_THRESHOLD) {
       List<NodeHandler> sorted = new ArrayList<>(nodeHandlerMap.values());
       sorted.sort(Comparator.comparingInt(o -> o.getNodeStatistics().getReputation()));

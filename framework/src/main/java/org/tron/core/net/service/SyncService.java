@@ -34,6 +34,10 @@ import org.tron.core.net.peer.PeerConnection;
 import org.tron.protos.Protocol.Inventory.InventoryType;
 import org.tron.protos.Protocol.ReasonCode;
 
+/**
+ * 异步线程同步服务
+ * 启动两个单例的异步线程
+ */
 @Slf4j(topic = "net")
 @Component
 public class SyncService {
@@ -48,6 +52,7 @@ public class SyncService {
 
   private Map<BlockMessage, PeerConnection> blockJustReceived = new ConcurrentHashMap<>();
 
+  //缓存最近同步区块blockId 1小时后过期
   private Cache<BlockId, Long> requestBlockIds = CacheBuilder.newBuilder().maximumSize(10_000)
       .expireAfterWrite(1, TimeUnit.HOURS).initialCapacity(10_000)
       .recordStats().build();
@@ -60,13 +65,17 @@ public class SyncService {
   private volatile boolean handleFlag = false;
 
   @Setter
+  //是否可以开始同步区块具体数据标识
   private volatile boolean fetchFlag = false;
 
+  //初始化
   public void init() {
+    //启动同步区块具体数据的异步线程（从syncBlockToFetch中拿到blocks 发送FetchInvDataMessage消息）
     fetchExecutor.scheduleWithFixedDelay(() -> {
       try {
         if (fetchFlag) {
           fetchFlag = false;
+          //开始同步区块具体数据
           startFetchSyncBlock();
         }
       } catch (Exception e) {
@@ -91,23 +100,31 @@ public class SyncService {
     blockHandleExecutor.shutdown();
   }
 
+  //发起区块儿同步
   public void startSync(PeerConnection peer) {
     peer.setTronState(TronState.SYNCING);
     peer.setNeedSyncFromPeer(true);
+    //清空涉及到区块儿同步的值
     peer.getSyncBlockToFetch().clear();
     peer.setRemainNum(0);
     peer.setBlockBothHave(tronNetDelegate.getGenesisBlockId());
+    //发起同步区块儿方法
     syncNext(peer);
   }
 
+  //发起开始同步区块儿方法 发送SyncBlockChainMessage消息 带上自己的摘要信息
   public void syncNext(PeerConnection peer) {
     try {
+      //判断当前peer是否已经发送过请求区块的行为
       if (peer.getSyncChainRequested() != null) {
         logger.warn("Peer {} is in sync.", peer.getNode().getHost());
         return;
       }
+      //计算本节点区块儿摘要
       LinkedList<BlockId> chainSummary = getBlockChainSummary(peer);
+      //设置同步摘要内容
       peer.setSyncChainRequested(new Pair<>(chainSummary, System.currentTimeMillis()));
+      //发送SyncBlockChainMessage消息（带上chainSummary）
       peer.sendMessage(new SyncBlockChainMessage(chainSummary));
     } catch (Exception e) {
       logger.error("Peer {} sync failed, reason: {}", peer.getInetAddress(), e.getMessage());
@@ -141,9 +158,11 @@ public class SyncService {
     fetchFlag = true;
   }
 
+  //计算区块儿同步摘要 TODO 逻辑暂时搁置
   private LinkedList<BlockId> getBlockChainSummary(PeerConnection peer) throws P2pException {
-
+    //起始的区块儿
     BlockId beginBlockId = peer.getBlockBothHave();
+    //syncBlockToFetch 的 block 也算是本节点的 block
     List<BlockId> blockIds = new ArrayList<>(peer.getSyncBlockToFetch());
     List<BlockId> forkList = new LinkedList<>();
     LinkedList<BlockId> summary = new LinkedList<>();
@@ -193,20 +212,32 @@ public class SyncService {
     return summary;
   }
 
+  //同步区块具体数据方法
   private void startFetchSyncBlock() {
+    //储存发送消息map key:Connection  value:blockIds
     HashMap<PeerConnection, List<BlockId>> send = new HashMap<>();
 
+    //拿到所有的需要同步区块的peer连接
     tronNetDelegate.getActivePeer().stream()
+            //需要从peer同步区块 且 TODO
         .filter(peer -> peer.isNeedSyncFromPeer() && peer.isIdle())
         .forEach(peer -> {
+          //缓存Connection
           if (!send.containsKey(peer)) {
             send.put(peer, new LinkedList<>());
           }
+          //遍历syncBlockToFetch集合
           for (BlockId blockId : peer.getSyncBlockToFetch()) {
+            //判断blockId是否已经 执行过请求区块数据
             if (requestBlockIds.getIfPresent(blockId) == null) {
+              //缓存要请求区块的block
               requestBlockIds.put(blockId, System.currentTimeMillis());
+              //把block加入 syncBlockRequested集合
               peer.getSyncBlockRequested().put(blockId, System.currentTimeMillis());
+              //把block 加入peer 的待发送的列表里
               send.get(peer).add(blockId);
+
+              //判断 peer 待发送列表不超过100 (如果超过100则等待定时任务下次执行)
               if (send.get(peer).size() >= MAX_BLOCK_FETCH_PER_PEER) {
                 break;
               }
@@ -214,6 +245,7 @@ public class SyncService {
           }
         });
 
+    //遍历send 发送FetchInvDataMessage消息
     send.forEach((peer, blockIds) -> {
       if (!blockIds.isEmpty()) {
         peer.sendMessage(new FetchInvDataMessage(new LinkedList<>(blockIds), InventoryType.BLOCK));

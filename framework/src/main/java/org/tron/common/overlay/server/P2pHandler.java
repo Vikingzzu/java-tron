@@ -17,6 +17,9 @@ import org.tron.common.overlay.message.DisconnectMessage;
 import org.tron.common.overlay.message.P2pMessage;
 import org.tron.protos.Protocol.ReasonCode;
 
+/**
+ * p2p网络handle逻辑
+ */
 @Slf4j(topic = "net")
 @Component
 @Scope("prototype")
@@ -46,19 +49,23 @@ public class P2pHandler extends SimpleChannelInboundHandler<P2pMessage> {
   public void channelRead0(final ChannelHandlerContext ctx, P2pMessage msg) {
 
     msgQueue.receivedMessage(msg);
+    //业务统计
     MessageStatistics messageStatistics = channel.getNodeStatistics().messageStatistics;
     switch (msg.getType()) {
       case P2P_PING:
         int count = messageStatistics.p2pInPing.getCount(10);
+        //发送ping次数过多视为tcp攻击
         if (count > 3) {
           logger.warn("TCP attack found: {} with ping count({})", ctx.channel().remoteAddress(),
               count);
           channel.disconnect(ReasonCode.BAD_PROTOCOL);
           return;
         }
+        //返回pong消息
         msgQueue.sendMessage(PONG_MESSAGE);
         break;
       case P2P_PONG:
+        //收到pong次数大于 发送ping次数 视为tcp攻击
         if (messageStatistics.p2pInPong.getTotalCount() > messageStatistics.p2pOutPing
             .getTotalCount()) {
           logger.warn("TCP attack found: {} with ping count({}), pong count({})",

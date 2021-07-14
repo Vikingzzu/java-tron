@@ -44,9 +44,13 @@ import org.tron.protos.Protocol.Block;
 import org.tron.protos.Protocol.BlockHeader;
 import org.tron.protos.Protocol.Transaction;
 
+/**
+ * 区块儿封装类
+ */
 @Slf4j(topic = "capsule")
 public class BlockCapsule implements ProtoCapsule<Block> {
 
+  //区块儿是否是自己节点生成的
   public boolean generatedByMyself = false;
   @Getter
   @Setter
@@ -89,6 +93,13 @@ public class BlockCapsule implements ProtoCapsule<Block> {
   }
 
 
+  /**
+   * 区块儿初始化类
+   * @param timestamp 时间戳
+   * @param parentHash  parentHash
+   * @param number num
+   * @param transactionList 交易list
+   */
   public BlockCapsule(long timestamp, ByteString parentHash, long number,
       List<Transaction> transactionList) {
     // block header raw

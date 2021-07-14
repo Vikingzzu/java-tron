@@ -71,6 +71,7 @@ public class Channel {
 
     this.channelManager = channelManager;
 
+    //判断channel是否活跃
     isActive = remoteId != null && !remoteId.isEmpty();
 
     startTime = System.currentTimeMillis();
@@ -82,11 +83,14 @@ public class Channel {
     pipeline.addLast("lengthDecode", new TrxProtobufVarint32FrameDecoder(this));
 
     //handshake first
+    //设置处理握手协议的handler
     pipeline.addLast("handshakeHandler", handshakeHandler);
 
     messageCodec.setChannel(this);
     msgQueue.setChannel(this);
+    //handshakeHandler 设置channel
     handshakeHandler.setChannel(this, remoteId);
+
     p2pHandler.setChannel(this);
     tronNetHandler.setChannel(this);
     pbftHandler.setChannel(this);
@@ -96,17 +100,25 @@ public class Channel {
     pbftHandler.setMsgQueue(msgQueue);
   }
 
+  //channel处理HelloMessage 握手信息
   public void publicHandshakeFinished(ChannelHandlerContext ctx, HelloMessage msg) {
+    //判断远程地址是否可信
     isTrustPeer = channelManager.getTrustNodes().getIfPresent(getInetAddress()) != null;
+    //判断远程节点地址是否为FastForward节点
     isFastForwardPeer = channelManager.getFastForwardNodes().containsKey(getInetAddress());
+    //ChannelHandlerContext 移除握手handler
     ctx.pipeline().remove(handshakeHandler);
+    //启动消费队列的线程池
     msgQueue.activate(ctx);
     ctx.pipeline().addLast("messageCodec", messageCodec);
     ctx.pipeline().addLast("p2p", p2pHandler);
     ctx.pipeline().addLast("data", tronNetHandler);
     ctx.pipeline().addLast("pbft", pbftHandler);
+    //设置channel的启动时间
     setStartTime(msg.getTimestamp());
+    //设置TronState为握手完毕
     setTronState(TronState.HANDSHAKE_FINISHED);
+    //统计p2p握手完成数量
     getNodeStatistics().p2pHandShake.add();
     logger.info("Finish handshake with {}.", ctx.channel().remoteAddress());
   }
@@ -114,8 +126,10 @@ public class Channel {
   /**
    * Set node and register it in NodeManager if it is not registered yet.
    */
+  //p2p连接node初始化操作
   public void initNode(byte[] nodeId, int remotePort) {
     Node n = new Node(nodeId, inetSocketAddress.getHostString(), remotePort);
+    //从nodeManager拿到对应的handler
     NodeHandler handler = nodeManager.getNodeHandler(n);
     node = handler.getNode();
     nodeStatistics = handler.getNodeStatistics();
@@ -250,10 +264,14 @@ public class Channel {
   }
 
   public enum TronState {
+    //默认INIT
     INIT,
+    //建立握手连接后 HANDSHAKE_FINISHED
     HANDSHAKE_FINISHED,
     START_TO_SYNC,
+    //需要从对方同步区块儿时 SYNCING
     SYNCING,
+    //对方需要从本节点同步区块儿时 SYNC_COMPLETED
     SYNC_COMPLETED,
     SYNC_FAILED
   }

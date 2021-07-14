@@ -43,6 +43,9 @@ import org.tron.core.metrics.MetricsUtil;
 import org.tron.core.net.peer.PeerConnection;
 import org.tron.protos.Protocol.ReasonCode;
 
+/**
+ * 处理握手协议的handler
+ */
 @Slf4j(topic = "net")
 @Component
 @Scope("prototype")
@@ -73,16 +76,23 @@ public class HandshakeHandler extends ByteToMessageDecoder {
   private SyncPool syncPool;
 
   @Override
+  //客户端与服务端连接成功时触发
   public void channelActive(ChannelHandlerContext ctx) throws Exception {
+    //log输出远程地址
     logger.info("channel active, {}", ctx.channel().remoteAddress());
+    //绑定ChannelHandlerContext
     channel.setChannelHandlerContext(ctx);
+    //如果remoteId存在且长度为64位
     if (remoteId.length == 64) {
+      //初始化node节点
       channel.initNode(remoteId, ((InetSocketAddress) ctx.channel().remoteAddress()).getPort());
+      //发送hello msg 建立p2p连接
       sendHelloMsg(ctx, System.currentTimeMillis());
     }
   }
 
   @Override
+  //收到消息进行解码
   protected void decode(ChannelHandlerContext ctx, ByteBuf buffer, List<Object> out)
       throws Exception {
     byte[] encoded = new byte[buffer.readableBytes()];
@@ -118,6 +128,7 @@ public class HandshakeHandler extends ByteToMessageDecoder {
     this.remoteId = Hex.decode(remoteId);
   }
 
+  //发送hello消息
   protected void sendHelloMsg(ChannelHandlerContext ctx, long time) {
     HelloMessage message = new HelloMessage(nodeManager.getPublicHomeNode(), time,
         chainBaseManager.getGenesisBlockId(), chainBaseManager.getSolidBlockId(),
@@ -130,15 +141,19 @@ public class HandshakeHandler extends ByteToMessageDecoder {
     logger.info("Handshake send to {}, {} ", ctx.channel().remoteAddress(), message);
   }
 
+  //接收处理hello消息
   private void handleHelloMsg(ChannelHandlerContext ctx, HelloMessage msg) {
 
+    //初始化节点
     channel.initNode(msg.getFrom().getId(), msg.getFrom().getPort());
 
+    //校验不通过直接关闭channel
     if (!fastForward.checkHelloMessage(msg, channel)) {
       channel.disconnect(ReasonCode.UNEXPECTED_IDENTITY);
       return;
     }
 
+    //判断remoteId长度  不为64位时必须为可信任的配置节点
     if (remoteId.length != 64) {
       InetAddress address = ((InetSocketAddress) ctx.channel().remoteAddress()).getAddress();
       if (channelManager.getTrustNodes().getIfPresent(address) == null && !syncPool
@@ -148,6 +163,7 @@ public class HandshakeHandler extends ByteToMessageDecoder {
       }
     }
 
+    //判断消息的版本和配置的是否一致
     if (msg.getVersion() != Args.getInstance().getNodeP2pVersion()) {
       logger.info("Peer {} different p2p version, peer->{}, me->{}",
           ctx.channel().remoteAddress(), msg.getVersion(), Args.getInstance().getNodeP2pVersion());
@@ -155,6 +171,7 @@ public class HandshakeHandler extends ByteToMessageDecoder {
       return;
     }
 
+    //判断创世块儿BlockId是否一致
     if (!Arrays
         .equals(chainBaseManager.getGenesisBlockId().getBytes(),
             msg.getGenesisBlockId().getBytes())) {
@@ -166,6 +183,7 @@ public class HandshakeHandler extends ByteToMessageDecoder {
       return;
     }
 
+    //判断如果数据库中最新节点block的num大于等于msg中的num 但是 数据库中不包含msg中的block 则异常返回
     if (chainBaseManager.getSolidBlockId().getNum() >= msg.getSolidBlockId().getNum()
         && !chainBaseManager.containBlockInMainChain(msg.getSolidBlockId())) {
       logger.info("Peer {} different solid block, peer->{}, me->{}", ctx.channel().remoteAddress(),
@@ -174,19 +192,26 @@ public class HandshakeHandler extends ByteToMessageDecoder {
       return;
     }
 
+    //设置channel的helloMessage消息
     ((PeerConnection) channel).setHelloMessage(msg);
 
+    //统计tcp连接入站出站数量
     channel.getNodeStatistics().messageStatistics.addTcpInMessage(msg);
 
+    //channel处理HelloMessage 握手信息
     channel.publicHandshakeFinished(ctx, msg);
+
+    //如果当前channel不能加入新的活跃节点中 则返回 不建立连接
     if (!channelManager.processPeer(channel)) {
       return;
     }
 
+    //如果remoteId存在且长度为64位 则 发送HelloMsg
     if (remoteId.length != 64) {
       sendHelloMsg(ctx, msg.getTimestamp());
     }
 
+    //当前channel建立连接
     syncPool.onConnect(channel);
   }
 }

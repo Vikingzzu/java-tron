@@ -12,6 +12,9 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.tron.core.net.peer.PeerConnection;
 
+/**
+ * Tron channel 初始化类
+ */
 @Slf4j(topic = "net")
 @Component
 @Scope("prototype")
@@ -36,6 +39,7 @@ public class TronChannelInitializer extends ChannelInitializer<NioSocketChannel>
     try {
       final Channel channel = ctx.getBean(PeerConnection.class);
 
+      //初始化channel
       channel.init(ch.pipeline(), remoteId, peerDiscoveryMode, channelManager);
 
       // limit the size of receiving buffer to 1024

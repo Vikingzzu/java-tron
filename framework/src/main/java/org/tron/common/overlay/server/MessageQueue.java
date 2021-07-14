@@ -24,6 +24,9 @@ import org.tron.core.net.message.TransactionsMessage;
 import org.tron.protos.Protocol.Inventory.InventoryType;
 import org.tron.protos.Protocol.ReasonCode;
 
+/**
+ * 消息队列Queue
+ */
 @Slf4j(topic = "net")
 @Component
 @Scope("prototype")
@@ -59,7 +62,7 @@ public class MessageQueue {
       }
     }, 10, 10, TimeUnit.MILLISECONDS);
 
-    //启动一步线程消费msgQueue
+    //启动异步线程消费msgQueue
     sendMsgThread = new Thread(() -> {
       while (sendMsgFlag) {
         try {
@@ -128,6 +131,7 @@ public class MessageQueue {
     return true;
   }
 
+  //收到消息 各种指标统计
   public void receivedMessage(Message msg) {
     if (needToLog(msg)) {
       logger.info("Receive from {}, {}", ctx.channel().remoteAddress(), msg);
