@@ -233,8 +233,10 @@ public class NodeManager implements EventHandler {
   }
 
   @Override
+  //处理接收到的p2p网络发现msg
   public void handleEvent(UdpEvent udpEvent) {
     Message m = udpEvent.getMessage();
+    //校验消息类型
     if (!DiscoverMessageInspector.valid(m)) {
       return;
     }
@@ -245,17 +247,21 @@ public class NodeManager implements EventHandler {
         m.getFrom().getPort());
 
     NodeHandler nodeHandler = getNodeHandler(n);
+    //添加业务统计
     nodeHandler.getNodeStatistics().messageStatistics.addUdpInMessage(m.getType());
     MetricsUtil.meterMark(MetricsKey.NET_UDP_IN_TRAFFIC,
         udpEvent.getMessage().getData().length + 1);
 
     switch (m.getType()) {
+      //节点发现ping
       case DISCOVER_PING:
         nodeHandler.handlePing((PingMessage) m);
         break;
+      //节点发现pong
       case DISCOVER_PONG:
         nodeHandler.handlePong((PongMessage) m);
         break;
+        //返回当前邻居节点
       case DISCOVER_FIND_NODE:
         nodeHandler.handleFindNode((FindNodeMessage) m);
         break;

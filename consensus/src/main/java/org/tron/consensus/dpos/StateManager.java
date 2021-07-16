@@ -38,6 +38,7 @@ public class StateManager {
 
   public State getState() {
 
+    //当前时间小于 header block 时间 返回时钟错误
     if (System.currentTimeMillis() < consensusDelegate.getLatestBlockHeaderTimestamp()) {
       return State.CLOCK_ERROR;
     }
@@ -80,6 +81,7 @@ public class StateManager {
       return;
     }
 
+    //不是SR节点地址 return
     ByteString witness = blockCapsule.getWitnessAddress();
     if (!dposService.getMiners().containsKey(witness)) {
       return;

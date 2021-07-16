@@ -202,6 +202,7 @@ public class Manager {
   private AccountStateCallBack accountStateCallBack;
   @Autowired
   private TrieService trieService;
+  //账户更新许可合约 添加 交易账户地址 集合
   private Set<String> ownerAddressSet = new HashSet<>();
   @Getter
   @Autowired
@@ -212,6 +213,7 @@ public class Manager {
   @Getter
   private ChainBaseManager chainBaseManager;
   // transactions cache
+  //交易缓存对接 交易处理完后放置到该队列里  注意---->>>(此时该交易还是存在内存中  等待merge到数据库或者reset回滚)
   private BlockingQueue<TransactionCapsule> pendingTransactions;
   @Getter
   private AtomicInteger shieldedTransInPendingCounts = new AtomicInteger(0);
@@ -220,6 +222,7 @@ public class Manager {
       Collections.synchronizedList(Lists.newArrayList());
   // the capacity is equal to Integer.MAX_VALUE default
   private BlockingQueue<TransactionCapsule> rePushTransactions;
+  //数据订阅队列
   private BlockingQueue<TriggerCapsule> triggerCapsuleQueue;
 
   /**
@@ -625,13 +628,18 @@ public class Manager {
     return chainBaseManager.getAccountIndexStore();
   }
 
+  //验证tapos  交易中带的block 的 hash 和 数据库中根据num 查到的block 的 hash 是否一致
   void validateTapos(TransactionCapsule transactionCapsule) throws TaposException {
+    //从交易中拿到 block的 hash
     byte[] refBlockHash = transactionCapsule.getInstance()
         .getRawData().getRefBlockHash().toByteArray();
+    //从交易中拿到 block的 num
     byte[] refBlockNumBytes = transactionCapsule.getInstance()
         .getRawData().getRefBlockBytes().toByteArray();
     try {
+      //从数据库中查到的 block的 hash
       byte[] blockHash = chainBaseManager.getRecentBlockStore().get(refBlockNumBytes).getData();
+      //比较是否一致
       if (!Arrays.equals(blockHash, refBlockHash)) {
         String str = String.format(
             "Tapos failed, different block hash, %s, %s , recent block %s, "
@@ -654,14 +662,19 @@ public class Manager {
     }
   }
 
+  //校验消息长度过期时间
   void validateCommon(TransactionCapsule transactionCapsule)
       throws TransactionExpirationException, TooBigTransactionException {
+    //校验消息的长度是否过长
     if (transactionCapsule.getData().length > Constant.TRANSACTION_MAX_BYTE_SIZE) {
       throw new TooBigTransactionException(
           "too big transaction, the size is " + transactionCapsule.getData().length + " bytes");
     }
+    //拿到交易的过期时间
     long transactionExpiration = transactionCapsule.getExpiration();
+    //拿到链中header块的生成时间
     long headBlockTime = chainBaseManager.getHeadBlockTimeStamp();
+    //如果交易的过期时间小于header块的生成时间（说明交易已经过期或被打包）  或者   交易的时间比header块的生成时间大于1天 则校验不通过
     if (transactionExpiration <= headBlockTime
         || transactionExpiration > headBlockTime + Constant.MAXIMUM_TIME_UNTIL_EXPIRATION) {
       throw new TransactionExpirationException(
@@ -670,18 +683,21 @@ public class Manager {
     }
   }
 
+  //交易信息去重
   void validateDup(TransactionCapsule transactionCapsule) throws DupTransactionException {
+    //本节点是否含有该交易id
     if (containsTransaction(transactionCapsule)) {
       logger.debug(ByteArray.toHexString(transactionCapsule.getTransactionId().getBytes()));
       throw new DupTransactionException("dup trans");
     }
   }
 
+  //本节点是否含有该交易
   private boolean containsTransaction(TransactionCapsule transactionCapsule) {
     return containsTransaction(transactionCapsule.getTransactionId().getBytes());
   }
 
-
+  //本节点是否含有该交易id
   private boolean containsTransaction(byte[] transactionId) {
     if (transactionCache != null) {
       return transactionCache.has(transactionId);
@@ -725,17 +741,18 @@ public class Manager {
           return false;
         }
 
+        //设置session
         if (!session.valid()) {
           session.setValue(revokingStore.buildSession());
         }
-        //建立数据库连接
+        //建立tmpSession连接
         try (ISession tmpSession = revokingStore.buildSession()) {
-          // TODO ?
+          //处理交易数据
           processTransaction(trx, null);
           trx.setTrxTrace(null);
-          //交易消息添加到 pendingTransactions 队列
+          //交易消息添加到 pendingTransactions队列  注意---->>>(此时该交易还是存在内存中  等待merge到数据库或者reset回滚)
           pendingTransactions.add(trx);
-          // TODO ?
+          //把tmpSession merge 到当前的session中
           tmpSession.merge();
         }
         //判断交易是屏蔽交易  shieldedTransInPendingMaxCounts+1
@@ -750,6 +767,7 @@ public class Manager {
     return true;
   }
 
+  //验证设置手续费
   public void consumeMultiSignFee(TransactionCapsule trx, TransactionTrace trace)
       throws AccountResourceInsufficientException {
     if (trx.getInstance().getSignatureCount() > 1) {
@@ -760,12 +778,17 @@ public class Manager {
         byte[] address = TransactionCapsule.getOwner(contract);
         AccountCapsule accountCapsule = getAccountStore().get(address);
         try {
+          //上一步已经创建了账户 再查账户为空则直接报错
           if (accountCapsule != null) {
+            //设置账户余额 减去手续费 看看能否支撑交易
             adjustBalance(getAccountStore(), accountCapsule, -fee);
 
+            //判断是否支持黑洞优化
             if (getDynamicPropertiesStore().supportBlackHoleOptimization()) {
+              //黑洞优化的原理就是不断的增加 BURN_TRX_AMOUNT 燃烧手续费
               getDynamicPropertiesStore().burnTrx(fee);
             } else {
+              //设置账户余额 加回手续费
               adjustBalance(getAccountStore(), this.getAccountStore().getBlackhole(), +fee);
             }
           }
@@ -774,11 +797,12 @@ public class Manager {
               "Account Insufficient balance[" + fee + "] to MultiSign");
         }
       }
-
+      //设置手续费
       trace.getReceipt().setMultiSignFee(fee);
     }
   }
 
+  //设置交易手续费账单  用户网络带宽账单
   public void consumeBandwidth(TransactionCapsule trx, TransactionTrace trace)
       throws ContractValidateException, AccountResourceInsufficientException,
       TooBigTransactionResultException {
@@ -822,14 +846,18 @@ public class Manager {
         block.getTransactions().size());
   }
 
+  //储存区块信息
   private void applyBlock(BlockCapsule block) throws ContractValidateException,
       ContractExeException, ValidateSignatureException, AccountResourceInsufficientException,
       TransactionExpirationException, TooBigTransactionException, DupTransactionException,
       TaposException, ValidateScheduleException, ReceiptCheckErrException,
       VMIllegalException, TooBigTransactionResultException, ZksnarkException, BadBlockException {
     processBlock(block);
+    //储存区块
     chainBaseManager.getBlockStore().put(block.getBlockId().getBytes(), block);
+    //储存区块id索引
     chainBaseManager.getBlockIndexStore().put(block.getBlockId());
+    //储存区块中的交易信息
     if (block.getTransactions().size() != 0) {
       chainBaseManager.getTransactionRetStore()
           .put(ByteArray.fromLong(block.getNum()), block.getResult());
@@ -843,6 +871,7 @@ public class Manager {
     }
   }
 
+  //切链
   private void switchFork(BlockCapsule newHead)
       throws ValidateSignatureException, ContractValidateException, ContractExeException,
       ValidateScheduleException, AccountResourceInsufficientException, TaposException,
@@ -951,6 +980,7 @@ public class Manager {
   /**
    * save a block.
    */
+  //数据库区块入库方法
   public synchronized void pushBlock(final BlockCapsule block)
       throws ValidateSignatureException, ContractValidateException, ContractExeException,
       UnLinkedBlockException, ValidateScheduleException, AccountResourceInsufficientException,
@@ -961,13 +991,16 @@ public class Manager {
     long start = System.currentTimeMillis();
     try (PendingManager pm = new PendingManager(this)) {
 
+      //判断该块是否是自己产的
       if (!block.generatedByMyself) {
+        //校验block签名是否通过
         if (!block.validateSignature(chainBaseManager.getDynamicPropertiesStore(),
             chainBaseManager.getAccountStore())) {
           logger.warn("The signature is not validated.");
           throw new BadBlockException("The signature is not validated");
         }
 
+        //判断Merkle树root节点是否一致
         if (!block.calcMerkleRoot().equals(block.getMerkleRoot())) {
           logger.warn(
               "The merkle root doesn't match, Calc result is "
@@ -979,6 +1012,7 @@ public class Manager {
         consensus.receiveBlock(block);
       }
 
+      //判断block中不能含有匿名交易
       if (block.getTransactions().stream().filter(tran -> isShieldedTransaction(tran.getInstance()))
           .count() > SHIELDED_TRANS_IN_BLOCK_COUNTS) {
         throw new BadBlockException(
@@ -999,10 +1033,12 @@ public class Manager {
 
       // DB don't need lower block
       if (getDynamicPropertiesStore().getLatestBlockHeaderHash() == null) {
+        //判断是不是第一个创世block
         if (newBlock.getNum() != 0) {
           return;
         }
       } else {
+        //newBlock 的num必须大于header block的num
         if (newBlock.getNum() <= getDynamicPropertiesStore().getLatestBlockHeaderNumber()) {
           return;
         }
@@ -1011,6 +1047,7 @@ public class Manager {
         if (!newBlock
             .getParentHash()
             .equals(getDynamicPropertiesStore().getLatestBlockHeaderHash())) {
+          //判断如果new block 的ParentHash 是不是和 header block 的hash 一致   不一致则说明需要切链
           logger.warn(
               "switch fork! new head num = {}, block id = {}",
               newBlock.getNum(),
@@ -1034,6 +1071,7 @@ public class Manager {
                   + ", khaosDb unlinkMiniStore size: "
                   + khaosDb.getMiniUnlinkedStore().size());
 
+          //切链操作
           switchFork(newBlock);
           logger.info(SAVE_BLOCK + newBlock);
 
@@ -1057,8 +1095,10 @@ public class Manager {
 
           return;
         }
+
         try (ISession tmpSession = revokingStore.buildSession()) {
 
+          //储存区块信息
           applyBlock(newBlock);
           tmpSession.commit();
           // if event subscribe is enabled, post solidity trigger to queue
@@ -1142,6 +1182,7 @@ public class Manager {
 
   /**
    * 处理交易过程
+   * 如果带有blockCap 说明交易要打包到区块里
    * Process transaction.
    */
   public TransactionInfo processTransaction(final TransactionCapsule trxCap, BlockCapsule blockCap)
@@ -1149,24 +1190,31 @@ public class Manager {
       AccountResourceInsufficientException, TransactionExpirationException,
       TooBigTransactionException, TooBigTransactionResultException,
       DupTransactionException, TaposException, ReceiptCheckErrException, VMIllegalException {
+    //交易判空
     if (trxCap == null) {
       return null;
     }
 
+    //如果带有blockCap  则初始化currentTransactionBalanceTrace
     if (Objects.nonNull(blockCap)) {
       chainBaseManager.getBalanceTraceStore().initCurrentTransactionBalanceTrace(trxCap);
     }
 
+    //验证tapos 校验block信息是否正确
     validateTapos(trxCap);
+    //校验消息长度过期时间
     validateCommon(trxCap);
 
+    //校验消息的Contract大小只能为1个
     if (trxCap.getInstance().getRawData().getContractList().size() != 1) {
       throw new ContractSizeNotEqualToOneException(
           "act size should be exactly 1, this is extend feature");
     }
 
+    //交易信息去重
     validateDup(trxCap);
 
+    //校验消息签名
     if (!trxCap.validateSignature(chainBaseManager.getAccountStore(),
         chainBaseManager.getDynamicPropertiesStore())) {
       throw new ValidateSignatureException("transaction signature validate failed");
@@ -1174,18 +1222,30 @@ public class Manager {
 
     TransactionTrace trace = new TransactionTrace(trxCap, StoreFactory.getInstance(),
         new RuntimeImpl());
+    //初始化TransactionTrace
     trxCap.setTrxTrace(trace);
 
+    //设置交易手续费账单  用户网络带宽账单
     consumeBandwidth(trxCap, trace);
+
+    //验证设置手续费
     consumeMultiSignFee(trxCap, trace);
 
+    //初始化设置transactionContext
     trace.init(blockCap, eventPluginLoaded);
+
+    //校验触发合约的方法调用是否正常
     trace.checkIsConstant();
+
+    //执行合约代码
     trace.exec();
 
+    //如果带有blockCap
     if (Objects.nonNull(blockCap)) {
       trace.setResult();
+      //判断该交易是否已经验签
       if (blockCap.hasWitnessSignature()) {
+        //检测虚拟机合约执行结果 是否需要重新执行
         if (trace.checkNeedRetry()) {
           String txId = Hex.toHexString(trxCap.getTransactionId().getBytes());
           logger.info("Retry for tx id: {}", txId);
@@ -1196,43 +1256,59 @@ public class Manager {
           logger.info("Retry result for tx id: {}, tx resultCode in receipt: {}",
               txId, trace.getReceipt().getResult());
         }
+        //检测合约执行结果
         trace.check();
       }
     }
 
+    //执行账单扣费逻辑入库  释放交易地址  交易执行完成
     trace.finalization();
+
+    //设置有 blockCap 且支持虚拟机
     if (Objects.nonNull(blockCap) && getDynamicPropertiesStore().supportVM()) {
+      //设置transactionContext
       trxCap.setResult(trace.getTransactionContext());
     }
+    //交易信息入库
     chainBaseManager.getTransactionStore().put(trxCap.getTransactionId().getBytes(), trxCap);
 
+    //交易入缓存 transactionCache
     Optional.ofNullable(transactionCache)
         .ifPresent(t -> t.put(trxCap.getTransactionId().getBytes(),
             new BytesCapsule(ByteArray.fromLong(trxCap.getBlockNum()))));
+
 
     TransactionInfoCapsule transactionInfo = TransactionUtil
         .buildTransactionInfoInstance(trxCap, blockCap, trace);
 
     // if event subscribe is enabled, post contract triggers to queue
+    //如果有订阅时间，则交易发送到订阅队列
     postContractTrigger(trace, false);
     Contract contract = trxCap.getInstance().getRawData().getContract(0);
+    //判断该合约是否是 账户更新许可合约
     if (isMultiSignTransaction(trxCap.getInstance())) {
+      //ownerAddressSet 添加 交易账户地址
       ownerAddressSet.add(ByteArray.toHexString(TransactionCapsule.getOwner(contract)));
     }
 
     if (Objects.nonNull(blockCap)) {
+      //更新 currentTransactionBalanceTrace交易状态 运行结果
       chainBaseManager.getBalanceTraceStore()
           .updateCurrentTransactionStatus(
               trace.getRuntimeResult().getResultCode().name());
+      //设置currentTransactionBalanceTrace 到 balanceTrace 上   并重置currentTransactionId和currentTransactionBalanceTrace
       chainBaseManager.getBalanceTraceStore().resetCurrentTransactionTrace();
     }
     //set the sort order
+    //根据手续费设置排序
     trxCap.setOrder(transactionInfo.getFee());
+    //返回交易信息
     return transactionInfo.getInstance();
   }
 
   /**
    * Generate a block.
+   * 产出一个区块
    */
   public synchronized BlockCapsule generateBlock(Miner miner, long blockTime, long timeout) {
 
@@ -1251,6 +1327,7 @@ public class Manager {
       byte[] privateKeyAddress = miner.getPrivateKeyAddress().toByteArray();
       AccountCapsule witnessAccount = getAccountStore()
           .get(miner.getWitnessAddress().toByteArray());
+      //SR节点 产块许可
       if (!Arrays.equals(privateKeyAddress, witnessAccount.getWitnessPermissionAddress())) {
         logger.warn("Witness permission is wrong");
         return null;
@@ -1280,12 +1357,13 @@ public class Manager {
         trx = rePushTransactions.poll();
       }
 
+      //判断流程是否超时
       if (System.currentTimeMillis() > timeout) {
         logger.warn("Processing transaction time exceeds the producing time.");
         break;
       }
 
-      // check the block size
+      // check the block size 判断区块大小是否过大
       if ((blockCapsule.getInstance().getSerializedSize() + trx.getSerializedSize() + 3)
           > ChainConstant.BLOCK_SIZE) {
         postponedTrxCount++;
@@ -1329,6 +1407,7 @@ public class Manager {
       }
     }
 
+    //区块信息上设置 trie.getRootHash
     accountStateCallBack.executeGenerateFinish();
 
     session.reset();
@@ -1352,6 +1431,7 @@ public class Manager {
     }
   }
 
+  //判断该合约是否是账户更新许可合约
   private boolean isMultiSignTransaction(Transaction transaction) {
     Contract contract = transaction.getRawData().getContract(0);
     switch (contract.getType()) {
@@ -1363,11 +1443,11 @@ public class Manager {
     return false;
   }
 
-  // 判断消息类型是屏蔽消息（判断消息体中第一个参数类型为 ShieldedTransferContract = 51）
+  // 判断消息类型是匿名消息（判断消息体中第一个参数类型为 ShieldedTransferContract = 51）
   private boolean isShieldedTransaction(Transaction transaction) {
     Contract contract = transaction.getRawData().getContract(0);
     switch (contract.getType()) {
-      //屏蔽 交易 合同
+      //匿名交易合同
       case ShieldedTransferContract: {
         return true;
       }
@@ -1403,7 +1483,7 @@ public class Manager {
       ZksnarkException, BadBlockException {
     // todo set revoking db max size.
 
-    // checkWitness
+    //共识校验区块  校验witnessAddress 和slot
     if (!consensus.validBlock(block)) {
       throw new ValidateScheduleException("validateWitnessSchedule error");
     }
@@ -1415,6 +1495,7 @@ public class Manager {
     //parallel check sign
     if (!block.generatedByMyself) {
       try {
+        //校验区块内所有的交易签名
         preValidateTransactionSign(block);
       } catch (InterruptedException e) {
         logger.error("parallel check sign interrupted exception! block info: {}", block, e);
@@ -1427,12 +1508,14 @@ public class Manager {
     try {
       merkleContainer.resetCurrentMerkleTree();
       accountStateCallBack.preExecute(block);
+      //遍历区块儿内的交易
       for (TransactionCapsule transactionCapsule : block.getTransactions()) {
         transactionCapsule.setBlockNum(block.getNum());
         if (block.generatedByMyself) {
           transactionCapsule.setVerified(true);
         }
         accountStateCallBack.preExeTrans();
+        //验证交易
         TransactionInfo result = processTransaction(transactionCapsule, block);
         accountStateCallBack.exeTransFinish();
         if (Objects.nonNull(result)) {
@@ -1443,7 +1526,9 @@ public class Manager {
     } finally {
       accountStateCallBack.exceptionFinish();
     }
+
     merkleContainer.saveCurrentMerkleTreeAsBestMerkleTree(block.getNum());
+
     block.setResult(transactionRetCapsule);
     if (getDynamicPropertiesStore().getAllowAdaptiveEnergy() == 1) {
       EnergyProcessor energyProcessor = new EnergyProcessor(
@@ -1452,25 +1537,32 @@ public class Manager {
       energyProcessor.updateAdaptiveTotalEnergyLimit();
     }
 
+    //打包奖励
     payReward(block);
 
+    //判断生成block的时间是否达到维护期
     if (chainBaseManager.getDynamicPropertiesStore().getNextMaintenanceTime()
         <= block.getTimeStamp()) {
       proposalController.processProposals();
       chainBaseManager.getForkController().reset();
     }
 
+    //处理区块逻辑 1：更新产块节点的产块信息 2：维护期 更新sr列表  更新提议数据  3：固化前固定位置区块
     if (!consensus.applyBlock(block)) {
       throw new BadBlockException("consensus apply block failed");
     }
 
+    //更新区块blockId索引
     updateTransHashCache(block);
+    //更新收到区块缓存
     updateRecentBlock(block);
+    //更新主链信息
     updateDynamicProperties(block);
 
     chainBaseManager.getBalanceTraceStore().resetCurrentBlockTrace();
   }
 
+  //打包奖励
   private void payReward(BlockCapsule block) {
     WitnessCapsule witnessCapsule =
         chainBaseManager.getWitnessStore().getUnchecked(block.getInstance().getBlockHeader()
@@ -1551,6 +1643,7 @@ public class Manager {
     Args.getSolidityContractEventTriggerMap().remove(blockNum);
   }
 
+  //更新区块blockId索引
   private void updateTransHashCache(BlockCapsule block) {
     for (TransactionCapsule transactionCapsule : block.getTransactions()) {
       this.transactionIdCache.put(transactionCapsule.getTransactionId(), true);
@@ -1781,6 +1874,7 @@ public class Manager {
     }
   }
 
+  //交易是否发送到订阅队列
   private void postContractTrigger(final TransactionTrace trace, boolean remove) {
     boolean isContractTriggerEnable = EventPluginLoader.getInstance()
         .isContractEventTriggerEnable() || EventPluginLoader

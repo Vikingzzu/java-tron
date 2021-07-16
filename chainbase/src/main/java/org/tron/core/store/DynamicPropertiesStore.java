@@ -2205,6 +2205,7 @@ public class DynamicPropertiesStore extends TronStoreWithRevoking<BytesCapsule> 
         .orElseThrow(() -> new IllegalArgumentException("not found BURN_TRX_AMOUNT"));
   }
 
+  //黑洞优化的原理就是不断的增加 BURN_TRX_AMOUNT 燃烧手续费
   public void burnTrx(long amount) {
     if (amount <= 0) {
       return;

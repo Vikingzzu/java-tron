@@ -62,6 +62,7 @@ public class DiscoverMessageInspector {
     return true;
   }
 
+  //校验消息类型
   public static boolean valid(Message message) {
     boolean flag = false;
     switch (message.getType()) {

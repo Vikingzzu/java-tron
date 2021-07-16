@@ -69,6 +69,7 @@ public class DposService implements ConsensusInterface {
   //创世块
   private GenesisBlock genesisBlock;
   @Getter
+  //储存SR节点地址
   private Map<ByteString, Miner> miners = new HashMap<>();
 
   @Override
@@ -80,7 +81,7 @@ public class DposService implements ConsensusInterface {
     this.blockHandle = param.getBlockHandle();
     this.genesisBlock = param.getGenesisBlock();
     this.genesisBlockTime = Long.parseLong(param.getGenesisBlock().getTimestamp());
-    //初始化矿工地址列表
+    //初始化SR地址列表
     param.getMiners().forEach(miner -> miners.put(miner.getWitnessAddress(), miner));
 
     dposTask.setDposService(this);
@@ -102,6 +103,7 @@ public class DposService implements ConsensusInterface {
       });
     }
     maintenanceManager.init();
+    //启动产块任务
     dposTask.init();
   }
 
@@ -142,13 +144,18 @@ public class DposService implements ConsensusInterface {
   }
 
   @Override
+  //处理收到区块逻辑
   public boolean applyBlock(BlockCapsule blockCapsule) {
+    //更新产块节点的产块信息
     statisticManager.applyBlock(blockCapsule);
+    //维护期 更新sr列表  更新提议数据
     maintenanceManager.applyBlock(blockCapsule);
+    //固化前固定位置区块
     updateSolidBlock();
     return true;
   }
 
+  //固化前固定位置区块
   private void updateSolidBlock() {
     List<Long> numbers = consensusDelegate.getActiveWitnesses().stream()
         .map(address -> consensusDelegate.getWitness(address.toByteArray()).getLatestBlockNum())

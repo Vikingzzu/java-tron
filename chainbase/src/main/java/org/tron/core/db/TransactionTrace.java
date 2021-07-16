@@ -37,6 +37,9 @@ import org.tron.protos.Protocol.Transaction.Result.contractResult;
 import org.tron.protos.contract.SmartContractOuterClass.SmartContract.ABI;
 import org.tron.protos.contract.SmartContractOuterClass.TriggerSmartContract;
 
+/**
+ * 交易痕迹
+ */
 @Slf4j(topic = "TransactionTrace")
 public class TransactionTrace {
 
@@ -124,6 +127,7 @@ public class TransactionTrace {
         eventPluginLoaded);
   }
 
+  //校验触发合约的方法调用是否正常
   public void checkIsConstant() throws ContractValidateException, VMIllegalException {
     if (dynamicPropertiesStore.getAllowTvmConstantinople() == 1) {
       return;
@@ -171,6 +175,7 @@ public class TransactionTrace {
     receipt.addNetFee(netFee);
   }
 
+  //执行合约代码 设置账单
   public void exec()
       throws ContractExeException, ContractValidateException, VMIllegalException {
     /*  VM execute  */
@@ -197,6 +202,7 @@ public class TransactionTrace {
     receipt.setCallerEnergyLeft(energyLeft);
   }
 
+  //执行账单扣费逻辑  释放交易地址  交易执行完成
   public void finalization() throws ContractExeException {
     try {
       pay();

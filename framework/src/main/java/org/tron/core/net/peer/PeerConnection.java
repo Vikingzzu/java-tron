@@ -52,19 +52,23 @@ public class PeerConnection extends Channel {
 
   @Setter
   @Getter
+  //收到的具体 清单item 缓存
   private Cache<Item, Long> advInvReceive = CacheBuilder.newBuilder().maximumSize(invCacheSize)
       .expireAfterWrite(1, TimeUnit.HOURS).recordStats().build();
 
   @Setter
   @Getter
+  //Connection中缓存 广播过的item数据
   private Cache<Item, Long> advInvSpread = CacheBuilder.newBuilder().maximumSize(invCacheSize)
       .expireAfterWrite(1, TimeUnit.HOURS).recordStats().build();
 
   @Setter
   @Getter
+  //处理清单消息集合advInvReceive  发送FetchInvDataMessage消息任务 记录
   private Map<Item, Long> advInvRequest = new ConcurrentHashMap<>();
 
   @Setter
+  //最新广播过的fastForwardBlock
   private BlockId fastForwardBlock;
 
   @Getter
@@ -94,6 +98,7 @@ public class PeerConnection extends Channel {
   private Pair<Deque<BlockId>, Long> syncChainRequested = null;
   @Setter
   @Getter
+  //正在准备入库的block 集合
   private Set<BlockId> syncBlockInProcess = new HashSet<>();
   @Setter
   @Getter
@@ -109,6 +114,7 @@ public class PeerConnection extends Channel {
     this.blockBothHaveUpdateTime = System.currentTimeMillis();
   }
 
+  //请求block的各种集合是否以全部完成
   public boolean isIdle() {
     return advInvRequest.isEmpty() && syncBlockRequested.isEmpty() && syncChainRequested == null;
   }
@@ -118,7 +124,7 @@ public class PeerConnection extends Channel {
     msgQueue.sendMessage(message);
   }
 
-  //发送广播数据（一般为发送区块儿）
+  //发送消息数据（一般为发送区块儿）
   public void fastSend(Message message) {
     msgQueue.fastSend(message);
   }

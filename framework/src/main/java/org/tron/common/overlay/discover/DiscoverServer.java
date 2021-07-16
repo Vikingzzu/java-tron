@@ -36,6 +36,7 @@ import org.tron.common.overlay.server.WireTrafficStats;
 import org.tron.common.parameter.CommonParameter;
 import org.tron.core.config.args.Args;
 
+//p2p网络节点发现server
 @Slf4j(topic = "discover")
 @Component
 public class DiscoverServer {
@@ -65,6 +66,7 @@ public class DiscoverServer {
       } else {
         new Thread(() -> {
           try {
+            //启动服务
             start();
           } catch (Exception e) {
             logger.error("Discovery server start failed.", e);
@@ -92,11 +94,13 @@ public class DiscoverServer {
                 ch.pipeline().addLast(new ProtobufVarint32FrameDecoder());
                 ch.pipeline().addLast(new PacketDecoder());
                 MessageHandler messageHandler = new MessageHandler(ch, nodeManager);
+                //设置MessageHandler
                 nodeManager.setMessageSender(messageHandler);
                 ch.pipeline().addLast(messageHandler);
               }
             });
 
+        //启动p2p节点发现server
         channel = b.bind(port).sync().channel();
 
         logger.info("Discovery server started, bind port {}", port);

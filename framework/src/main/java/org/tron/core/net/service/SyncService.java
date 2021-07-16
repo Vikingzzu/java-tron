@@ -48,8 +48,10 @@ public class SyncService {
   @Autowired
   private PbftDataSyncHandler pbftDataSyncHandler;
 
+  //等待入库的区块集合map
   private Map<BlockMessage, PeerConnection> blockWaitToProcess = new ConcurrentHashMap<>();
 
+  //收到block消息 后把block 暂存在map里
   private Map<BlockMessage, PeerConnection> blockJustReceived = new ConcurrentHashMap<>();
 
   //缓存最近同步区块blockId 1小时后过期
@@ -62,10 +64,11 @@ public class SyncService {
   private ScheduledExecutorService blockHandleExecutor = Executors
       .newSingleThreadScheduledExecutor();
 
+  //是否开始开始处理收到的block标识  （异步线程blockHandleExecutor 根据此状态处理blockJustReceived集合）
   private volatile boolean handleFlag = false;
 
   @Setter
-  //是否可以开始同步区块具体数据标识
+  //是否可以开始同步区块具体数据标识 （异步线程fetchExecutor 消费syncBlockToFetch集合数据 发送 FetchInvDataMessage 消息）
   private volatile boolean fetchFlag = false;
 
   //初始化
@@ -75,7 +78,7 @@ public class SyncService {
       try {
         if (fetchFlag) {
           fetchFlag = false;
-          //开始同步区块具体数据
+          //开始同步区块具体数据  消费syncBlockToFetch集合数据 发送 FetchInvDataMessage 消息
           startFetchSyncBlock();
         }
       } catch (Exception e) {
@@ -83,10 +86,12 @@ public class SyncService {
       }
     }, 10, 1, TimeUnit.SECONDS);
 
+    //启动处理接收到的区块数据集合（）的异步线程
     blockHandleExecutor.scheduleWithFixedDelay(() -> {
       try {
         if (handleFlag) {
           handleFlag = false;
+          //处理收到的区块结合（blockJustReceived集合）
           handleSyncBlock();
         }
       } catch (Exception e) {
@@ -108,11 +113,11 @@ public class SyncService {
     peer.getSyncBlockToFetch().clear();
     peer.setRemainNum(0);
     peer.setBlockBothHave(tronNetDelegate.getGenesisBlockId());
-    //发起同步区块儿方法
+    //发起同步区块儿方法 发送SyncBlockChainMessage消息 带上自己的摘要信息
     syncNext(peer);
   }
 
-  //发起开始同步区块儿方法 发送SyncBlockChainMessage消息 带上自己的摘要信息
+  //发起开始同步区块方法 发送SyncBlockChainMessage消息 带上自己的摘要信息
   public void syncNext(PeerConnection peer) {
     try {
       //判断当前peer是否已经发送过请求区块的行为
@@ -132,16 +137,23 @@ public class SyncService {
     }
   }
 
+  //处理收到的区块msg数据
   public void processBlock(PeerConnection peer, BlockMessage blockMessage) {
+    //把block 放置到 blockJustReceived集合
     synchronized (blockJustReceived) {
       blockJustReceived.put(blockMessage, peer);
     }
+    //设置标识 异步线程blockHandleExecutor 根据此状态处理blockJustReceived集合
     handleFlag = true;
+    //判断请求block的所有集合是否处理完成
     if (peer.isIdle()) {
+      //如果需要同步peer节点的的区块还没有同步完 且 目前syncBlockToFetch集合的大小小于2000
       if (peer.getRemainNum() > 0
           && peer.getSyncBlockToFetch().size() <= NetConstants.SYNC_FETCH_BATCH_NUM) {
+        //继续发起同步  发送SyncBlockChainMessage消息 带上自己的摘要信息
         syncNext(peer);
       } else {
+        //否则说明 要同步的syncBlockToFetch集合数据还很多 设置标识 启动fetchExecutor线程继续消费
         fetchFlag = true;
       }
     }
@@ -212,7 +224,7 @@ public class SyncService {
     return summary;
   }
 
-  //同步区块具体数据方法
+  //同步区块具体数据方法  消费syncBlockToFetch集合数据 发送 FetchInvDataMessage 消息
   private void startFetchSyncBlock() {
     //储存发送消息map key:Connection  value:blockIds
     HashMap<PeerConnection, List<BlockId>> send = new HashMap<>();
@@ -253,8 +265,10 @@ public class SyncService {
     });
   }
 
+  //处理收到的区块结合（blockJustReceived集合）
   private synchronized void handleSyncBlock() {
 
+    //把所有的blockJustReceived 放入到 blockWaitToProcess集合里
     synchronized (blockJustReceived) {
       blockWaitToProcess.putAll(blockJustReceived);
       blockJustReceived.clear();
@@ -262,28 +276,35 @@ public class SyncService {
 
     final boolean[] isProcessed = {true};
 
+    //blockWaitToProcess遍历所有的Block 拼接到链上 入库
     while (isProcessed[0]) {
 
       isProcessed[0] = false;
 
       synchronized (tronNetDelegate.getBlockLock()) {
         blockWaitToProcess.forEach((msg, peerConnection) -> {
+          //判断peer是否已经失去连接
           if (peerConnection.isDisconnect()) {
             blockWaitToProcess.remove(msg);
             invalid(msg.getBlockId());
             return;
           }
           final boolean[] isFound = {false};
+          //block 找对对应的匹配的 peer
           tronNetDelegate.getActivePeer().stream()
               .filter(peer -> msg.getBlockId().equals(peer.getSyncBlockToFetch().peek()))
               .forEach(peer -> {
+                //syncBlockToFetch集合里 删除当前block
                 peer.getSyncBlockToFetch().pop();
+                //放入入库集合
                 peer.getSyncBlockInProcess().add(msg.getBlockId());
                 isFound[0] = true;
               });
           if (isFound[0]) {
+            //等待入库的区块集合map 删除当前msg
             blockWaitToProcess.remove(msg);
             isProcessed[0] = true;
+            //block 入库方法
             processSyncBlock(msg.getBlockCapsule());
           }
         });
@@ -291,24 +312,32 @@ public class SyncService {
     }
   }
 
+  //block 入库方法
   private void processSyncBlock(BlockCapsule block) {
     boolean flag = true;
     BlockId blockId = block.getBlockId();
     try {
+      //区块入库方法
       tronNetDelegate.processBlock(block, true);
+      //发送共识消息方法
       pbftDataSyncHandler.processPBFTCommitData(block);
     } catch (Exception e) {
       logger.error("Process sync block {} failed.", blockId.getString(), e);
       flag = false;
     }
     for (PeerConnection peer : tronNetDelegate.getActivePeer()) {
+      //入库集合中删除block
       if (peer.getSyncBlockInProcess().remove(blockId)) {
         if (flag) {
+          //更新最新的同有block
           peer.setBlockBothHave(blockId);
+          //需要更新的block为空   继续发起同步请求
           if (peer.getSyncBlockToFetch().isEmpty()) {
+            //发起开始同步区块方法 发送SyncBlockChainMessage消息 带上自己的摘要信息
             syncNext(peer);
           }
         } else {
+          //入库不成功则关闭连接
           peer.disconnect(ReasonCode.BAD_BLOCK);
         }
       }

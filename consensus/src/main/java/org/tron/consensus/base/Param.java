@@ -53,7 +53,7 @@ public class Param {
     return param;
   }
 
-  //矿工
+  //SR节点
   public class Miner {
 
     @Getter

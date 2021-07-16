@@ -71,6 +71,7 @@ public class TronNetService {
     //异步线程同步服务 初始化
     syncService.init();
     peerStatusCheck.init();
+    //异步线程处理合约交易 初始化
     transactionsMsgHandler.init();
     logger.info("TronNetService start successfully.");
   }
@@ -101,6 +102,9 @@ public class TronNetService {
          * 异步 区块 链（p2p握手后发起同步区块儿消息）
          * p2p连接建立之后，通过peer和us的比较，决定是否需要同步区块儿， 如果需要同步区块儿则 计算本链的BlockChainSummary（区块链摘要）
          * 然后发送SYNC_BLOCK_CHAIN消息 给远端节点
+         *
+         * 返回：
+         * 返回BLOCK_CHAIN_INVENTORY消息
          */
         case SYNC_BLOCK_CHAIN:
           syncBlockChainMsgHandler.processMessage(peer, msg);
@@ -109,28 +113,47 @@ public class TronNetService {
          * 区块 链 清单（接到SYNC_BLOCK_CHAIN消息后 打包对方需要的blocks返回 区块链清单消息）
          * 接收到SYNC_BLOCK_CHAIN消息后  我们节点 计算出需要同步给对方的区块 和 还需要同步的追平数量  new ChainInventoryMessage(blockIds, remainNum)
          * 然后发送BLOCK_CHAIN_INVENTORY消息给原来的节点
+         *
+         * 返回：
+         * 返回FETCH_INV_DATA消息
          */
         case BLOCK_CHAIN_INVENTORY:
           chainInventoryMsgHandler.processMessage(peer, msg);
           break;
-          //清单
+        /**
+         * 清单消息
+         * 接到广播消息后  定时任务spreadExecutor（AdvService -> spreadExecutor.scheduleWithFixedDelay 92行）
+         * 会把广播消息封装成INVENTORY消息发送 （AdvService -> invSender.sendInv() 313行）
+         *
+         * 返回：
+         * 接收到INVENTORY消息后的节点会返回 FETCH_INV_DATA消息 取数据
+         */
         case INVENTORY:
           inventoryMsgHandler.processMessage(peer, msg);
           break;
         /**
-         * 取回 环境 数据（取回具体的区块数据）(定时任务发起定时轮询 us中需要从peer同步的区块集合syncBlockToFetch 然后发送FETCH_INV_DATA 消息请求具体的区块数据)
+         * 取回 环境 数据（取回具体数据）(定时任务发起定时轮询 us中需要从peer同步的区块集合syncBlockToFetch 然后发送FETCH_INV_DATA 消息请求具体的区块数据)
          * 1：us节点接到BLOCK_CHAIN_INVENTORY消息后  可以拿到具体的需要同步的blocks集合  存储在syncBlockToFetch中
          * 2：然后由定时任务发起定时轮询，拿到syncBlockToFetch集合里的数据 封装后向peer发送 FETCH_INV_DATA消息 取回具体的区块
          * code ---->  SyncService -> FetchInvDataMessage(new LinkedList<>(blockIds), InventoryType.BLOCK))  251行
+         *
+         *返回：
+         * 然后根据具体的InventoryType 去返回block 消息  或者 trx消息
          */
         case FETCH_INV_DATA:
           fetchInvDataMsgHandler.processMessage(peer, msg);
           break;
-          //区块
+        /**
+         * 区块消息
+         *接收block消息 入库后广播出去
+         */
         case BLOCK:
           blockMsgHandler.processMessage(peer, msg);
           break;
-          //交易
+        /**
+         * 交易消息
+         *接收交易消息 入库后广播出去
+         */
         case TRXS:
           transactionsMsgHandler.processMessage(peer, msg);
           break;

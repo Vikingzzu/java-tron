@@ -179,6 +179,7 @@ public class BlockCapsule implements ProtoCapsule<Block> {
         this.block.getBlockHeader().getRawData().toByteArray());
   }
 
+  //校验block签名是否正确
   public boolean validateSignature(DynamicPropertiesStore dynamicPropertiesStore,
       AccountStore accountStore) throws ValidateSignatureException {
     try {

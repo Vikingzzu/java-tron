@@ -526,7 +526,6 @@ public class Wallet {
 
       // 判断数据库配置是否支持虚拟机
       if (chainBaseManager.getDynamicPropertiesStore().supportVM()) {
-        // TODO reset something?
         trx.resetResult();
       }
       //交易数据 推送到等待队列

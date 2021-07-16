@@ -64,6 +64,8 @@ public class BalanceTraceStore extends TronStoreWithRevoking<BlockBalanceTraceCa
     currentBlockId = blockCapsule.getBlockId();
   }
 
+
+  //设置currentTransactionBalanceTrace 到 balanceTrace 上   并重置currentTransactionId和currentTransactionBalanceTrace
   public void resetCurrentTransactionTrace() {
     if (!CommonParameter.getInstance().isHistoryBalanceLookup()) {
       return;
@@ -96,6 +98,7 @@ public class BalanceTraceStore extends TronStoreWithRevoking<BlockBalanceTraceCa
     }
   }
 
+  //初始化 currentTransactionBalanceTrace
   public void initCurrentTransactionBalanceTrace(TransactionCapsule transactionCapsule) {
     if (!CommonParameter.getInstance().isHistoryBalanceLookup()) {
       return;
@@ -112,6 +115,7 @@ public class BalanceTraceStore extends TronStoreWithRevoking<BlockBalanceTraceCa
         .build();
   }
 
+  //更新 currentTransactionBalanceTrace交易状态为status
   public void updateCurrentTransactionStatus(String status) {
     if (!CommonParameter.getInstance().isHistoryBalanceLookup()) {
       return;

@@ -40,6 +40,7 @@ public class SnapshotManager implements RevokingDatabase {
   public static final int DEFAULT_MIN_FLUSH_COUNT = 1;
   private static final int DEFAULT_STACK_MAX_SIZE = 256;
   @Getter
+  //所有的连接Chainbase
   private List<Chainbase> dbs = new ArrayList<>();
   @Getter
   private int size = 0;
@@ -48,6 +49,7 @@ public class SnapshotManager implements RevokingDatabase {
   private boolean disabled = true;
   // for test
   @Getter
+  //统计活跃的连接session数
   private int activeSession = 0;
   // for test
   @Setter
@@ -89,7 +91,9 @@ public class SnapshotManager implements RevokingDatabase {
       disabled = false;
     }
 
+    //判断session连接数有没有大于256
     if (size > maxSize.get()) {
+      //更新flushCount
       flushCount = flushCount + (size - maxSize.get());
       updateSolidity(size - maxSize.get());
       size = maxSize.get();

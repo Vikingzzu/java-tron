@@ -27,7 +27,7 @@ import io.netty.channel.socket.nio.NioDatagramChannel;
 import java.net.InetSocketAddress;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
-
+//p2p网络节点发现处理handler
 @Slf4j(topic = "net")
 public class MessageHandler extends SimpleChannelInboundHandler<UdpEvent>
     implements Consumer<UdpEvent> {
@@ -52,6 +52,7 @@ public class MessageHandler extends SimpleChannelInboundHandler<UdpEvent>
         udpEvent.getMessage().getType(),
         udpEvent.getMessage().getSendData().length,
         udpEvent.getAddress());
+    //处理收到的不同的handler
     eventHandler.handleEvent(udpEvent);
   }
 

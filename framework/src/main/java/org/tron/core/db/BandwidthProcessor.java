@@ -64,6 +64,7 @@ public class BandwidthProcessor extends ResourceProcessor {
     });
   }
 
+  //处理交易手续费账单  用户网络带宽账单
   @Override
   public void consume(TransactionCapsule trx, TransactionTrace trace)
       throws ContractValidateException, AccountResourceInsufficientException,
@@ -75,6 +76,7 @@ public class BandwidthProcessor extends ResourceProcessor {
 
     long bytesSize;
 
+    //计算交易的字节码大小
     if (chainBaseManager.getDynamicPropertiesStore().supportVM()) {
       bytesSize = trx.getInstance().toBuilder().clearRet().build().getSerializedSize();
     } else {
@@ -85,37 +87,48 @@ public class BandwidthProcessor extends ResourceProcessor {
       if (contract.getType() == ShieldedTransferContract) {
         continue;
       }
+      //如果支持虚拟机 bytesSize需加上64
       if (chainBaseManager.getDynamicPropertiesStore().supportVM()) {
         bytesSize += Constant.MAX_RESULT_SIZE_IN_TX;
       }
 
       logger.debug("trxId {}, bandwidth cost: {}", trx.getTransactionId(), bytesSize);
+      //设置网络带宽占用账单
       trace.setNetBill(bytesSize, 0);
+      //获取当前交易账户address
       byte[] address = TransactionCapsule.getOwner(contract);
+      //获取账户信息
       AccountCapsule accountCapsule = chainBaseManager.getAccountStore().get(address);
+      //账户为空直接异常返回
       if (accountCapsule == null) {
         throw new ContractValidateException("account does not exist");
       }
+      //获取当前到头部节点的槽位
       long now = chainBaseManager.getHeadSlot();
 
+      //判断当前交易是否需要创建账户
       if (contractCreateNewAccount(contract)) {
         consumeForCreateNewAccount(accountCapsule, bytesSize, now, trace);
         continue;
       }
 
+      //判断设置账户带宽是否够用
       if (contract.getType() == TransferAssetContract && useAssetAccountNet(contract,
           accountCapsule, now, bytesSize)) {
         continue;
       }
 
+      //判断设置用户网络是否够用
       if (useAccountNet(accountCapsule, bytesSize, now)) {
         continue;
       }
 
+      //判断设置用户免费网络是否够用
       if (useFreeNet(accountCapsule, bytesSize, now)) {
         continue;
       }
 
+      //设置交易网络手续费账单
       if (useTransactionFee(accountCapsule, bytesSize, trace)) {
         continue;
       }
@@ -127,10 +140,12 @@ public class BandwidthProcessor extends ResourceProcessor {
     }
   }
 
+  //设置交易网络手续费账单
   private boolean useTransactionFee(AccountCapsule accountCapsule, long bytes,
       TransactionTrace trace) {
     long fee = chainBaseManager.getDynamicPropertiesStore().getTransactionFee() * bytes;
     if (consumeFeeForBandwidth(accountCapsule, fee)) {
+      //设置交易网络手续费账单
       trace.setNetBill(0, fee);
       chainBaseManager.getDynamicPropertiesStore().addTotalTransactionCost(fee);
       return true;
@@ -220,7 +235,7 @@ public class BandwidthProcessor extends ResourceProcessor {
     }
   }
 
-
+  //判断设置账户带宽是否够用
   private boolean useAssetAccountNet(Contract contract, AccountCapsule accountCapsule, long now,
       long bytes)
       throws ContractValidateException {
@@ -360,6 +375,7 @@ public class BandwidthProcessor extends ResourceProcessor {
     return (long) (netWeight * ((double) totalNetLimit / totalNetWeight));
   }
 
+  //判断设置用户网络是否够用
   private boolean useAccountNet(AccountCapsule accountCapsule, long bytes, long now) {
 
     long netUsage = accountCapsule.getNetUsage();
@@ -384,6 +400,7 @@ public class BandwidthProcessor extends ResourceProcessor {
     return true;
   }
 
+  //判断设置用户免费网络是否够用
   private boolean useFreeNet(AccountCapsule accountCapsule, long bytes, long now) {
 
     long freeNetLimit = chainBaseManager.getDynamicPropertiesStore().getFreeNetLimit();

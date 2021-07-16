@@ -297,6 +297,7 @@ public class ChainBaseManager {
     genesisBlock = BlockUtil.newGenesisBlockCapsule();
   }
 
+  //获取当前到头部节点的槽位
   public long getHeadSlot() {
     return (getDynamicPropertiesStore().getLatestBlockHeaderTimestamp() - getGenesisBlock()
         .getTimeStamp()) / BLOCK_PRODUCED_INTERVAL;

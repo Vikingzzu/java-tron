@@ -42,7 +42,9 @@ public class BlockHandleImpl implements BlockHandle {
     return manager;
   }
 
+  //生产区块方法
   public BlockCapsule produce(Miner miner, long blockTime, long timeout) {
+    //打包区块
     BlockCapsule blockCapsule = manager.generateBlock(miner, blockTime, timeout);
     if (blockCapsule == null) {
       return null;
@@ -50,8 +52,10 @@ public class BlockHandleImpl implements BlockHandle {
     try {
       consensus.receiveBlock(blockCapsule);
       BlockMessage blockMessage = new BlockMessage(blockCapsule);
+      //广播 fastForward block消息
       tronNetService.fastForward(blockMessage);
       manager.pushBlock(blockCapsule);
+      //广播block消息
       tronNetService.broadcast(blockMessage);
     } catch (Exception e) {
       logger.error("Handle block {} failed.", blockCapsule.getBlockId().getString(), e);

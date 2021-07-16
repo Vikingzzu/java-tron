@@ -18,6 +18,9 @@ import org.tron.consensus.base.State;
 import org.tron.core.capsule.BlockCapsule;
 import org.tron.protos.Protocol.BlockHeader;
 
+/**
+ * 打包交易产块task
+ */
 @Slf4j(topic = "consensus")
 @Component
 public class DposTask {
@@ -38,8 +41,10 @@ public class DposTask {
 
   private volatile boolean isRunning = true;
 
+  //初始化
   public void init() {
 
+    //允许产块  miners SR节点列表不为空
     if (!dposService.isEnable() || StringUtils.isEmpty(dposService.getMiners())) {
       return;
     }
@@ -53,7 +58,9 @@ public class DposTask {
           } else {
             long time =
                 BLOCK_PRODUCED_INTERVAL - System.currentTimeMillis() % BLOCK_PRODUCED_INTERVAL;
+            //3s整点等待
             Thread.sleep(time);
+            //打包产块
             State state = produceBlock();
             if (!State.OK.equals(state)) {
               logger.info("Produce block failed: {}", state);
@@ -65,6 +72,7 @@ public class DposTask {
       }
     };
     produceThread = new Thread(runnable, "DPosMiner");
+    //线程启动
     produceThread.start();
     logger.info("DPoS task started.");
   }
@@ -77,6 +85,7 @@ public class DposTask {
     logger.info("DPoS task stopped.");
   }
 
+  //打包交易产块
   private State produceBlock() {
 
     State state = stateManager.getState();

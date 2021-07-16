@@ -89,8 +89,10 @@ public class TronNetDelegate {
 
   private int blockIdCacheSize = 100;
 
+  //缓存最新入库的100个block
   private Queue<BlockId> freshBlockId = new ConcurrentLinkedQueue<BlockId>() {
     @Override
+    //TODO 使用方有哪些？
     public boolean offer(BlockId blockId) {
       if (size() > blockIdCacheSize) {
         super.poll();
@@ -99,6 +101,7 @@ public class TronNetDelegate {
     }
   };
 
+  //维护可信的地址InetAddress列表
   public void trustNode(PeerConnection peer) {
     channelManager.getTrustNodes().put(peer.getInetAddress(), peer.getNode());
   }
@@ -196,22 +199,28 @@ public class TronNetDelegate {
     }
   }
 
+  //区块入库方法
   public void processBlock(BlockCapsule block, boolean isSync) throws P2pException {
     BlockId blockId = block.getBlockId();
     synchronized (blockLock) {
       try {
         if (!freshBlockId.contains(blockId)) {
+          //如果收到的block的num 小于当前链header block的num 则说明出现链条分叉
           if (block.getNum() <= getHeadBlockId().getNum()) {
+            //链条分叉
             logger.warn("Receive a fork block {} witness {}, head {}",
                 block.getBlockId().getString(),
                 Hex.toHexString(block.getWitnessAddress().toByteArray()),
                 getHeadBlockId().getString());
           }
+          //添加监控信息
           if (!isSync) {
             //record metrics
             metricsService.applyBlock(block);
           }
+          //数据库区块入库方法
           dbManager.pushBlock(block);
+          //缓存最新入库的100个block
           freshBlockId.add(blockId);
           logger.info("Success process block {}.", blockId.getString());
           if (!backupServerStartFlag
@@ -244,6 +253,7 @@ public class TronNetDelegate {
     }
   }
 
+  //推送到交易等待队列 待入库
   public void pushTransaction(TransactionCapsule trx) throws P2pException {
     try {
       trx.setTime(System.currentTimeMillis());
@@ -265,6 +275,7 @@ public class TronNetDelegate {
     }
   }
 
+  //校验block是否合法
   public boolean validBlock(BlockCapsule block) throws P2pException {
     try {
       return witnessScheduleStore.getActiveWitnesses().contains(block.getWitnessAddress())

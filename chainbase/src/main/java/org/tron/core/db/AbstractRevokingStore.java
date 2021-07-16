@@ -35,6 +35,9 @@ import org.tron.core.db2.core.Chainbase;
 import org.tron.core.db2.core.RevokingDBWithCachingOldValue;
 import org.tron.core.exception.RevokingStoreIllegalStateException;
 
+/**
+ * V1版本的数据库  有缺陷  不再使用
+ */
 @Slf4j(topic = "DB")
 @Getter // only for unit test
 public abstract class AbstractRevokingStore implements RevokingDatabase {

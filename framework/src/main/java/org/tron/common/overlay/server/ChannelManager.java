@@ -53,7 +53,7 @@ public class ChannelManager {
       .maximumSize(1000).expireAfterWrite(30, TimeUnit.SECONDS).recordStats().build();
 
   @Getter
-  //维护可信地址节点
+  //可信的地址InetAddress列表
   private Cache<InetAddress, Node> trustNodes = CacheBuilder.newBuilder().maximumSize(100).build();
 
   @Getter
