@@ -989,6 +989,7 @@ public class Manager {
       BadNumberBlockException, BadBlockException, NonCommonBlockException,
       ReceiptCheckErrException, VMIllegalException, ZksnarkException {
     long start = System.currentTimeMillis();
+    //try 代码体里 会自动调用close 方法
     try (PendingManager pm = new PendingManager(this)) {
 
       //判断该块是否是自己产的
