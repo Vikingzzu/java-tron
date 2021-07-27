@@ -1666,6 +1666,7 @@ public class Manager {
         .getForkController().update(block);
   }
 
+  //获取固化块的高度
   public long getSyncBeginNumber() {
     logger.info("headNumber:"
         + chainBaseManager.getDynamicPropertiesStore().getLatestBlockHeaderNumber());

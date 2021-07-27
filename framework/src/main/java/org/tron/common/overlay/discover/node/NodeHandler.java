@@ -101,6 +101,7 @@ public class NodeHandler {
     }
     if (!node.isDiscoveryNode()) {
       if (newState == State.ALIVE) {
+        //如果添加node后 返回null 说明添加成功 否则说明bucket含有的node大于16个  则触发挑战
         Node evictCandidate = nodeManager.getTable().addNode(this.node);
         if (evictCandidate == null) {
           newState = State.ACTIVE;
@@ -137,6 +138,7 @@ public class NodeHandler {
       }
     }
 
+    //触发挑战代码
     if (newState == State.EVICTCANDIDATE) {
       // trying to survive, sending ping and waiting for pong
       sendPing();

@@ -110,6 +110,7 @@ public class TronNetDelegate {
     return syncPool.getActivePeers();
   }
 
+  //获取固化块的高度
   public long getSyncBeginNumber() {
     return dbManager.getSyncBeginNumber();
   }

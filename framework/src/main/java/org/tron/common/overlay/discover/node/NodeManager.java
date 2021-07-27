@@ -76,6 +76,7 @@ public class NodeManager implements EventHandler {
         commonParameter.getNodeListenPort());
 
     for (String boot : commonParameter.getSeedNode().getIpList()) {
+      //初始化node 缓存
       bootNodes.add(Node.instanceOf(boot));
     }
 
@@ -91,12 +92,15 @@ public class NodeManager implements EventHandler {
   }
 
   @Override
+  //初始化   把数据库中的node和配置文件中的node 加入nodeHandlerMap
   public void channelActivated() {
     if (!inited) {
       inited = true;
 
       if (commonParameter.isNodeDiscoveryPersist()) {
+        //读取数据库 初始化node 加入nodeHandlerMap
         dbRead();
+        //node入库线程
         nodeManagerTasksTimer.scheduleAtFixedRate(new TimerTask() {
           @Override
           public void run() {
@@ -106,6 +110,7 @@ public class NodeManager implements EventHandler {
       }
 
       for (Node node : bootNodes) {
+        //把boot node 加入nodeHandlerMap
         getNodeHandler(node);
       }
     }
@@ -191,7 +196,7 @@ public class NodeManager implements EventHandler {
       //新node 入缓存
       nodeHandlerMap.put(key, ret);
     } else if (ret.getNode().isDiscoveryNode() && !n.isDiscoveryNode()) {
-      //map里存的是伪造节点  但node不是伪造节点
+      //======map里存的是伪造节点  但node不是伪造节点
       ret.setNode(n);
     }
     return ret;

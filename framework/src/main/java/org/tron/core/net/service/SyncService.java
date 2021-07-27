@@ -172,28 +172,40 @@ public class SyncService {
 
   //计算区块儿同步摘要 TODO 逻辑暂时搁置
   private LinkedList<BlockId> getBlockChainSummary(PeerConnection peer) throws P2pException {
-    //起始的区块儿
+    //共有的区块儿
     BlockId beginBlockId = peer.getBlockBothHave();
     //syncBlockToFetch 的 block 也算是本节点的 block
     List<BlockId> blockIds = new ArrayList<>(peer.getSyncBlockToFetch());
     List<BlockId> forkList = new LinkedList<>();
     LinkedList<BlockId> summary = new LinkedList<>();
+    //获取固化块的高度
     long syncBeginNumber = tronNetDelegate.getSyncBeginNumber();
+    //设置Summary的起点（固化块高度）
     long low = syncBeginNumber < 0 ? 0 : syncBeginNumber;
     long highNoFork;
     long high;
 
+    /**
+     * BlockBothHave可能在主链上  也可能在分叉链上
+     * 如果在主链上 则计算主链上从固化块高度到主链高度 的区块摘要
+     * 如果在分叉连上 则计算主链上固化块高度 到 分叉节点  到分叉链高度 的区块摘要
+     */
+
     if (beginBlockId.getNum() == 0) {
+      //第一次启动时创世快设置0 走这个逻辑
       highNoFork = high = tronNetDelegate.getHeadBlockId().getNum();
     } else {
+      //不切链的场景
       if (tronNetDelegate.containBlockInMainChain(beginBlockId)) {
         highNoFork = high = beginBlockId.getNum();
       } else {
+        //切链的场景
         forkList = tronNetDelegate.getBlockChainHashesOnFork(beginBlockId);
         if (forkList.isEmpty()) {
           throw new P2pException(TypeEnum.SYNC_FAILED,
               "can't find blockId: " + beginBlockId.getString());
         }
+        //链开始分叉的高度
         highNoFork = ((LinkedList<BlockId>) forkList).peekLast().getNum();
         ((LinkedList) forkList).pollLast();
         Collections.reverse(forkList);

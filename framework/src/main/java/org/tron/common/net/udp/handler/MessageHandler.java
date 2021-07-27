@@ -43,6 +43,7 @@ public class MessageHandler extends SimpleChannelInboundHandler<UdpEvent>
 
   @Override
   public void channelActive(ChannelHandlerContext ctx) throws Exception {
+    //channel 初始化  从db中读取nodes信息
     eventHandler.channelActivated();
   }
 

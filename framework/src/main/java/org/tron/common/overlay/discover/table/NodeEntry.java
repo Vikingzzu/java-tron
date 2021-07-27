@@ -47,6 +47,7 @@ public class NodeEntry {
     touch();
   }
 
+  //计算两个节点之间的距离
   public static int distance(byte[] ownerId, byte[] targetId) {
     byte[] h1 = targetId;
     byte[] h2 = ownerId;

@@ -93,6 +93,7 @@ public class DiscoverServer {
                 ch.pipeline().addLast(new ProtobufVarint32LengthFieldPrepender());
                 ch.pipeline().addLast(new ProtobufVarint32FrameDecoder());
                 ch.pipeline().addLast(new PacketDecoder());
+                //设置p2p节点node状态转换handler
                 MessageHandler messageHandler = new MessageHandler(ch, nodeManager);
                 //设置MessageHandler
                 nodeManager.setMessageSender(messageHandler);

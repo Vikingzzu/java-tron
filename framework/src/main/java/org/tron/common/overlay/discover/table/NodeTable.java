@@ -48,6 +48,7 @@ public class NodeTable {
     }
   }
 
+  //添加node  共有256个buckets  每个buckets有16个nodes
   public synchronized Node addNode(Node n) {
     NodeEntry e = new NodeEntry(node.getId(), n);
     if (nodes.contains(e)) {
