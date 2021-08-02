@@ -628,7 +628,7 @@ public class Manager {
     return chainBaseManager.getAccountIndexStore();
   }
 
-  //验证tapos  交易中带的block 的 hash 和 数据库中根据num 查到的block 的 hash 是否一致
+  //验证tapos  交易中带的block 的 hash 和 数据库中根据num 查到的block 的 hash 是否一致 (校验交易所属的区块是否属于该链上，防止放到分叉上)
   void validateTapos(TransactionCapsule transactionCapsule) throws TaposException {
     //从交易中拿到 block的 hash
     byte[] refBlockHash = transactionCapsule.getInstance()
@@ -1201,7 +1201,7 @@ public class Manager {
       chainBaseManager.getBalanceTraceStore().initCurrentTransactionBalanceTrace(trxCap);
     }
 
-    //验证tapos 校验block信息是否正确
+    //验证tapos (校验交易所属的区块是否属于该链上，防止放到分叉上)
     validateTapos(trxCap);
     //校验消息长度过期时间
     validateCommon(trxCap);

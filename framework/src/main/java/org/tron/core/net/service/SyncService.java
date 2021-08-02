@@ -170,7 +170,7 @@ public class SyncService {
     fetchFlag = true;
   }
 
-  //计算区块儿同步摘要 TODO 逻辑暂时搁置
+  //计算区块儿同步摘要
   private LinkedList<BlockId> getBlockChainSummary(PeerConnection peer) throws P2pException {
     //共有的区块儿
     BlockId beginBlockId = peer.getBlockBothHave();
