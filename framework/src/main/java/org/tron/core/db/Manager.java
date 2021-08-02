@@ -1293,7 +1293,7 @@ public class Manager {
     }
 
     if (Objects.nonNull(blockCap)) {
-      //更新 currentTransactionBalanceTrace交易状态 运行结果
+      //更新 currentTransactionBalanceTrace交易状态  运行结果
       chainBaseManager.getBalanceTraceStore()
           .updateCurrentTransactionStatus(
               trace.getRuntimeResult().getResultCode().name());
