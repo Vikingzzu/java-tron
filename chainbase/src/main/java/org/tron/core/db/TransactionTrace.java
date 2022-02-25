@@ -159,7 +159,7 @@ public class TransactionTrace {
     receipt.setEnergyUsageTotal(energyUsage);
   }
 
-  //set net bill
+  //设置网络带宽  网络手续费
   public void setNetBill(long netUsage, long netFee) {
     receipt.setNetUsage(netUsage);
     receipt.setNetFee(netFee);
@@ -180,6 +180,7 @@ public class TransactionTrace {
       throws ContractExeException, ContractValidateException, VMIllegalException {
     /*  VM execute  */
     runtime.execute(transactionContext);
+    //--->虚拟机执行完合约后设置能量消耗账单
     setBill(transactionContext.getProgramResult().getEnergyUsed());
 
 //    if (TrxType.TRX_PRECOMPILED_TYPE != trxType) {
@@ -218,10 +219,12 @@ public class TransactionTrace {
 
   /**
    * pay actually bill(include ENERGY and storage).
+   * 执行能量扣费逻辑
    */
   public void pay() throws BalanceInsufficientException {
     byte[] originAccount;
     byte[] callerAccount;
+    //合约承担的能量百分比部分
     long percent = 0;
     long originEnergyLimit = 0;
     switch (trxType) {

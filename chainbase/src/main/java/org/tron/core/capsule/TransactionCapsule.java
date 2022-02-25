@@ -303,14 +303,14 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
   }
 
   // todo mv this static function to capsule util  可能以后要从本类删除
-  //获取交易消息体的 owner 地址
+  //获取交易的发起地址
   public static byte[] getOwner(Transaction.Contract contract) {
     ByteString owner;
     try {
       //获取交易内容参数
       Any contractParameter = contract.getParameter();
       switch (contract.getType()) {
-        //屏蔽 交易 合同
+        //匿名交易
         case ShieldedTransferContract: {
           ShieldedTransferContract shieldedTransferContract = contractParameter
               .unpack(ShieldedTransferContract.class);
@@ -323,7 +323,7 @@ public class TransactionCapsule implements ProtoCapsule<Transaction> {
           break;
         }
         // todo add other contract
-          //其他类型的交易合同
+          //非匿名交易
         default: {
           //根据交易参数类型获取 具体的message type class
           Class<? extends GeneratedMessageV3> clazz = TransactionFactory

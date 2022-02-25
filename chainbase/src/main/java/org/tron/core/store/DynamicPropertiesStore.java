@@ -1052,11 +1052,13 @@ public class DynamicPropertiesStore extends TronStoreWithRevoking<BytesCapsule> 
             () -> new IllegalArgumentException("not found FREE_NET_LIMIT"));
   }
 
+  //设置全网TRX质押量
   public void saveTotalNetWeight(long totalNetWeight) {
     this.put(DynamicResourceProperties.TOTAL_NET_WEIGHT,
         new BytesCapsule(ByteArray.fromLong(totalNetWeight)));
   }
 
+  //获取全网TRX质押量
   public long getTotalNetWeight() {
     return Optional.ofNullable(getUnchecked(DynamicResourceProperties.TOTAL_NET_WEIGHT))
         .map(BytesCapsule::getData)
@@ -1065,11 +1067,13 @@ public class DynamicPropertiesStore extends TronStoreWithRevoking<BytesCapsule> 
             () -> new IllegalArgumentException("not found TOTAL_NET_WEIGHT"));
   }
 
+  //储存全网质押TRX获取的能量总量
   public void saveTotalEnergyWeight(long totalEnergyWeight) {
     this.put(DynamicResourceProperties.TOTAL_ENERGY_WEIGHT,
         new BytesCapsule(ByteArray.fromLong(totalEnergyWeight)));
   }
 
+  //获取全网质押TRX获取的能量总量
   public long getTotalEnergyWeight() {
     return Optional.ofNullable(getUnchecked(DynamicResourceProperties.TOTAL_ENERGY_WEIGHT))
         .map(BytesCapsule::getData)
@@ -1096,6 +1100,7 @@ public class DynamicPropertiesStore extends TronStoreWithRevoking<BytesCapsule> 
         new BytesCapsule(ByteArray.fromLong(totalNetLimit)));
   }
 
+  //获取全网总带宽（43_200_000_000L）
   public long getTotalNetLimit() {
     return Optional.ofNullable(getUnchecked(DynamicResourceProperties.TOTAL_NET_LIMIT))
         .map(BytesCapsule::getData)
@@ -1137,6 +1142,7 @@ public class DynamicPropertiesStore extends TronStoreWithRevoking<BytesCapsule> 
         new BytesCapsule(ByteArray.fromLong(totalEnergyCurrentLimit)));
   }
 
+  //获取全网的能量总量（50_000_000_000L）
   public long getTotalEnergyCurrentLimit() {
     return Optional.ofNullable(getUnchecked(DynamicResourceProperties.TOTAL_ENERGY_CURRENT_LIMIT))
         .map(BytesCapsule::getData)
@@ -1230,6 +1236,7 @@ public class DynamicPropertiesStore extends TronStoreWithRevoking<BytesCapsule> 
         new BytesCapsule(ByteArray.fromLong(totalEnergyFee)));
   }
 
+  //获取energy 和 sun 的兑换比例（1 engergy = 100 sun）
   public long getEnergyFee() {
     return Optional.ofNullable(getUnchecked(ENERGY_FEE))
         .map(BytesCapsule::getData)
@@ -1296,6 +1303,7 @@ public class DynamicPropertiesStore extends TronStoreWithRevoking<BytesCapsule> 
         new BytesCapsule(ByteArray.fromLong(value)));
   }
 
+  //如果账户有足够的通过质押TRX获得的带宽，那么创建账户只会消耗带宽，否则，会烧掉0.1个TRX来支付带宽费用
   public long getCreateAccountFee() {
     return Optional.ofNullable(getUnchecked(CREATE_ACCOUNT_FEE))
         .map(BytesCapsule::getData)
@@ -1523,6 +1531,7 @@ public class DynamicPropertiesStore extends TronStoreWithRevoking<BytesCapsule> 
         new BytesCapsule(ByteArray.fromLong(value)));
   }
 
+  //创建新账户总消耗（每个新账户消耗0.1TRX）
   public long getTotalCreateAccountCost() {
     return Optional.ofNullable(getUnchecked(TOTAL_CREATE_ACCOUNT_COST))
         .map(BytesCapsule::getData)
@@ -2051,9 +2060,11 @@ public class DynamicPropertiesStore extends TronStoreWithRevoking<BytesCapsule> 
   }
 
   //The unit is trx
+  //增加全网TRX质押量
   public void addTotalNetWeight(long amount) {
     long totalNetWeight = getTotalNetWeight();
     totalNetWeight += amount;
+    //设置全网TRX质押量
     saveTotalNetWeight(totalNetWeight);
   }
 
@@ -2071,6 +2082,7 @@ public class DynamicPropertiesStore extends TronStoreWithRevoking<BytesCapsule> 
     saveTotalTronPowerWeight(totalWeight);
   }
 
+  //添加创建账户TRX消耗量
   public void addTotalCreateAccountCost(long fee) {
     long newValue = getTotalCreateAccountCost() + fee;
     saveTotalCreateAccountFee(newValue);

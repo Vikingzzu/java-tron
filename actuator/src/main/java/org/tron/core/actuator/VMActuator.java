@@ -191,6 +191,7 @@ public class VMActuator implements Actuator2 {
 
         if (TrxType.TRX_CONTRACT_CREATION_TYPE == trxType && !result.isRevert()) {
           byte[] code = program.getResult().getHReturn();
+          //计算合约执行需要的能量数 合约bytecode长度*200
           long saveCodeEnergy = (long) getLength(code) * EnergyCost.getInstance().getCREATE_DATA();
           long afterSpend = program.getEnergyLimitLeft().longValue() - saveCodeEnergy;
           if (afterSpend < 0) {
@@ -200,6 +201,7 @@ public class VMActuator implements Actuator2 {
                       saveCodeEnergy, program.getEnergyLimitLeft().longValue()));
             }
           } else {
+            //--->设置合约执行需要的能量数 合约bytecode长度*200
             result.spendEnergy(saveCodeEnergy);
             if (VMConfig.allowTvmConstantinople()) {
               repository.saveCode(program.getContractAddress().getNoLeadZeroesData(), code);

@@ -64,7 +64,7 @@ public class BandwidthProcessor extends ResourceProcessor {
     });
   }
 
-  //处理交易手续费账单  用户网络带宽账单
+  //--->处理交易带宽账单  用户网络带宽账单（原生交易  TRC10代币交易）
   @Override
   public void consume(TransactionCapsule trx, TransactionTrace trace)
       throws ContractValidateException, AccountResourceInsufficientException,
@@ -78,24 +78,27 @@ public class BandwidthProcessor extends ResourceProcessor {
 
     //计算交易的字节码大小
     if (chainBaseManager.getDynamicPropertiesStore().supportVM()) {
+      //
       bytesSize = trx.getInstance().toBuilder().clearRet().build().getSerializedSize();
     } else {
+      //普通交易
       bytesSize = trx.getSerializedSize();
     }
 
     for (Contract contract : contracts) {
+      //不处理匿名交易
       if (contract.getType() == ShieldedTransferContract) {
         continue;
       }
-      //如果支持虚拟机 bytesSize需加上64
+      //合约交易 需要补位 bytesSize需加上64
       if (chainBaseManager.getDynamicPropertiesStore().supportVM()) {
         bytesSize += Constant.MAX_RESULT_SIZE_IN_TX;
       }
 
       logger.debug("trxId {}, bandwidth cost: {}", trx.getTransactionId(), bytesSize);
-      //设置网络带宽占用账单
+      //设置带宽消耗
       trace.setNetBill(bytesSize, 0);
-      //获取当前交易账户address
+      //获取当前交易的发起地址
       byte[] address = TransactionCapsule.getOwner(contract);
       //获取账户信息
       AccountCapsule accountCapsule = chainBaseManager.getAccountStore().get(address);
@@ -103,32 +106,33 @@ public class BandwidthProcessor extends ResourceProcessor {
       if (accountCapsule == null) {
         throw new ContractValidateException("account does not exist");
       }
-      //获取当前到头部节点的槽位
+      //
       long now = chainBaseManager.getHeadSlot();
 
-      //判断当前交易是否需要创建账户
+      //交易是否是创建账户交易
       if (contractCreateNewAccount(contract)) {
+        //开户逻辑   质押TRX量够支持开户带宽  或  支付0.1TRX的带宽费用
         consumeForCreateNewAccount(accountCapsule, bytesSize, now, trace);
         continue;
       }
 
-      //判断设置账户带宽是否够用
+      //判断 TRC10 token 转账的带宽消耗
       if (contract.getType() == TransferAssetContract && useAssetAccountNet(contract,
           accountCapsule, now, bytesSize)) {
         continue;
       }
 
-      //判断设置用户网络是否够用
+      //判断转账方用户 质押TRX获取的带宽是否够用
       if (useAccountNet(accountCapsule, bytesSize, now)) {
         continue;
       }
 
-      //判断设置用户免费网络是否够用
+      //判断转账方用户 免费带宽是否够用
       if (useFreeNet(accountCapsule, bytesSize, now)) {
         continue;
       }
 
-      //设置交易网络手续费账单
+      //判断用户燃烧TRX获取的带宽是否够用
       if (useTransactionFee(accountCapsule, bytesSize, trace)) {
         continue;
       }
@@ -140,13 +144,16 @@ public class BandwidthProcessor extends ResourceProcessor {
     }
   }
 
-  //设置交易网络手续费账单
+  //判断用户燃烧TRX获取的带宽是否够用
   private boolean useTransactionFee(AccountCapsule accountCapsule, long bytes,
       TransactionTrace trace) {
+    //获取获取带宽所需要燃烧的TRX数量
+    //getTransactionFee = 字节（byte）单位的数据所需要的sun单位数
     long fee = chainBaseManager.getDynamicPropertiesStore().getTransactionFee() * bytes;
     if (consumeFeeForBandwidth(accountCapsule, fee)) {
-      //设置交易网络手续费账单
+      //设置消耗带宽的TRX
       trace.setNetBill(0, fee);
+      //累积用户消耗获取带宽的TRX
       chainBaseManager.getDynamicPropertiesStore().addTotalTransactionCost(fee);
       return true;
     } else {
@@ -154,12 +161,15 @@ public class BandwidthProcessor extends ResourceProcessor {
     }
   }
 
+  //创建新账户交易
   private void consumeForCreateNewAccount(AccountCapsule accountCapsule, long bytes,
       long now, TransactionTrace trace)
       throws AccountResourceInsufficientException {
+    //判断质押的TRX带宽是否够支持开户的带宽消耗量
     boolean ret = consumeBandwidthForCreateNewAccount(accountCapsule, bytes, now);
 
     if (!ret) {
+      //质押TRX的带宽不够支持开户   则消耗0.1TRX来支付开户带宽
       ret = consumeFeeForCreateNewAccount(accountCapsule, trace);
       if (!ret) {
         throw new AccountResourceInsufficientException();
@@ -167,6 +177,7 @@ public class BandwidthProcessor extends ResourceProcessor {
     }
   }
 
+  //判断质押的TRX带宽是否够支持开户的带宽消耗量
   public boolean consumeBandwidthForCreateNewAccount(AccountCapsule accountCapsule, long bytes,
       long now) {
 
@@ -193,10 +204,13 @@ public class BandwidthProcessor extends ResourceProcessor {
     return false;
   }
 
+  //账户没有足够的通过质押TRX获得的带宽，会烧掉0.1个TRX来支付带宽费用
   public boolean consumeFeeForCreateNewAccount(AccountCapsule accountCapsule,
       TransactionTrace trace) {
+    //开户带宽消耗0.1TRX
     long fee = chainBaseManager.getDynamicPropertiesStore().getCreateAccountFee();
     if (consumeFeeForNewAccount(accountCapsule, fee)) {
+      //支付0.1TRX开户 同时消耗带宽置为0
       trace.setNetBillForCreateNewAccount(0, fee);
       chainBaseManager.getDynamicPropertiesStore().addTotalCreateAccountCost(fee);
       return true;
@@ -205,6 +219,7 @@ public class BandwidthProcessor extends ResourceProcessor {
     }
   }
 
+  //判断交易是否是创建账户交易
   public boolean contractCreateNewAccount(Contract contract) {
     AccountCapsule toAccount;
     switch (contract.getType()) {
@@ -235,13 +250,14 @@ public class BandwidthProcessor extends ResourceProcessor {
     }
   }
 
-  //判断设置账户带宽是否够用
+  //判断 TRC10 token 转账的带宽消耗
   private boolean useAssetAccountNet(Contract contract, AccountCapsule accountCapsule, long now,
       long bytes)
       throws ContractValidateException {
 
     ByteString assetName;
     try {
+      //获取TRC10代币名称
       assetName = contract.getParameter().unpack(TransferAssetContract.class).getAssetName();
     } catch (Exception ex) {
       throw new RuntimeException(ex.getMessage());
@@ -253,20 +269,25 @@ public class BandwidthProcessor extends ResourceProcessor {
         chainBaseManager.getDynamicPropertiesStore(),
         chainBaseManager.getAssetIssueStore(), chainBaseManager.getAssetIssueV2Store())
         .get(assetName.toByteArray());
+    //查询TRC10代币信息
     if (assetIssueCapsule == null) {
       throw new ContractValidateException("asset does not exist");
     }
 
     String tokenName = ByteArray.toStr(assetName.toByteArray());
     String tokenID = assetIssueCapsule.getId();
+    //如果发行Token方自己发起的转账 则直接校验他自己质押代币获取的带宽是否够用
     if (assetIssueCapsule.getOwnerAddress() == accountCapsule.getAddress()) {
       return useAccountNet(accountCapsule, bytes, now);
     }
 
+    //验证 发行Token资产总的免费Bandwidth Points是否足够消耗
+    //获取发行Token资产方 总的免费带宽
     long publicFreeAssetNetLimit = assetIssueCapsule.getPublicFreeAssetNetLimit();
     long publicFreeAssetNetUsage = assetIssueCapsule.getPublicFreeAssetNetUsage();
     long publicLatestFreeNetTime = assetIssueCapsule.getPublicLatestFreeNetTime();
 
+    //获取发行Token资产方 已使用免费带宽
     long newPublicFreeAssetNetUsage = increase(publicFreeAssetNetUsage, 0,
         publicLatestFreeNetTime, now);
 
@@ -275,9 +296,12 @@ public class BandwidthProcessor extends ResourceProcessor {
       return false;
     }
 
+    //转账发起者的Token剩余免费Bandwidth Points是否足够消耗
+    //获取转账方的剩余免费带宽
     long freeAssetNetLimit = assetIssueCapsule.getFreeAssetNetLimit();
 
     long freeAssetNetUsage;
+    //用户 TRC10 代币 上次操作（转账）时间
     long latestAssetOperationTime;
     if (chainBaseManager.getDynamicPropertiesStore().getAllowSameTokenName() == 0) {
       freeAssetNetUsage = accountCapsule
@@ -289,6 +313,7 @@ public class BandwidthProcessor extends ResourceProcessor {
       latestAssetOperationTime = accountCapsule.getLatestAssetOperationTimeV2(tokenID);
     }
 
+    //获取转账方的已使用免费带宽
     long newFreeAssetNetUsage = increase(freeAssetNetUsage, 0,
         latestAssetOperationTime, now);
 
@@ -297,6 +322,7 @@ public class BandwidthProcessor extends ResourceProcessor {
       return false;
     }
 
+    //判断 Token发行者方 质押TRX获取Bandwidth Points剩余量是否足够消耗
     AccountCapsule issuerAccountCapsule = chainBaseManager.getAccountStore()
         .get(assetIssueCapsule.getOwnerAddress().toByteArray());
 
@@ -311,6 +337,7 @@ public class BandwidthProcessor extends ResourceProcessor {
       return false;
     }
 
+    //设置新的 newPublicFreeAssetNetUsage  publicLatestFreeNetTime
     latestConsumeTime = now;
     latestAssetOperationTime = now;
     publicLatestFreeNetTime = now;
@@ -361,27 +388,37 @@ public class BandwidthProcessor extends ResourceProcessor {
 
   }
 
+  //获取用户冻结trx获取的带宽
   public long calculateGlobalNetLimit(AccountCapsule accountCapsule) {
+    //获取冻结的trx数量（带6位精度）
     long frozeBalance = accountCapsule.getAllFrozenBalanceForBandwidth();
+    //冻结trx小于1 直接返回0
     if (frozeBalance < TRX_PRECISION) {
       return 0;
     }
+    //冻结的trx数量
     long netWeight = frozeBalance / TRX_PRECISION;
+    //获取全网总带宽（43_200_000_000L）
     long totalNetLimit = chainBaseManager.getDynamicPropertiesStore().getTotalNetLimit();
+    //获取全网TRX质押量
     long totalNetWeight = chainBaseManager.getDynamicPropertiesStore().getTotalNetWeight();
     if (totalNetWeight == 0) {
       return 0;
     }
+    //通过质押TRX获取的Bandwidth Point，
+    //额度 = 为获取Bandwidth Point质押的TRX / 整个网络为获取Bandwidth Points质押的TRX 总额 * 43_200_000_000。
+    //也就是所有用户按质押TRX平分固定额度的Bandwidth Points。
     return (long) (netWeight * ((double) totalNetLimit / totalNetWeight));
   }
 
-  //判断设置用户网络是否够用
+  //判断转账方用户 质押代币获取的带宽是否够用
   private boolean useAccountNet(AccountCapsule accountCapsule, long bytes, long now) {
-
     long netUsage = accountCapsule.getNetUsage();
     long latestConsumeTime = accountCapsule.getLatestConsumeTime();
+    //用户冻结trx获取的带宽
     long netLimit = calculateGlobalNetLimit(accountCapsule);
 
+    //获取用户已使用的质押带宽
     long newNetUsage = increase(netUsage, 0, latestConsumeTime, now);
 
     if (bytes > (netLimit - newNetUsage)) {
@@ -400,14 +437,17 @@ public class BandwidthProcessor extends ResourceProcessor {
     return true;
   }
 
-  //判断设置用户免费网络是否够用
+  //判断转账方用户 免费带宽是否够用
   private boolean useFreeNet(AccountCapsule accountCapsule, long bytes, long now) {
 
+    //freeNetLimit=5000
     long freeNetLimit = chainBaseManager.getDynamicPropertiesStore().getFreeNetLimit();
     long freeNetUsage = accountCapsule.getFreeNetUsage();
     long latestConsumeFreeTime = accountCapsule.getLatestConsumeFreeTime();
+    //用户已使用的 免费带宽
     long newFreeNetUsage = increase(freeNetUsage, 0, latestConsumeFreeTime, now);
 
+    //判断用户的免费带宽是否够使用
     if (bytes > (freeNetLimit - newFreeNetUsage)) {
       logger.debug("free net usage is running out");
       return false;
@@ -419,6 +459,7 @@ public class BandwidthProcessor extends ResourceProcessor {
 
     long newPublicNetUsage = increase(publicNetUsage, 0, publicNetTime, now);
 
+    //判断公共的免费带宽是否够使用
     if (bytes > (publicNetLimit - newPublicNetUsage)) {
       logger.debug("free public net usage is running out");
       return false;

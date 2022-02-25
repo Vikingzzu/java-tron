@@ -124,6 +124,7 @@ public class ReceiptCapsule {
 
   /**
    * payEnergyBill pay receipt energy bill by energy processor.
+   * 合约交易支付能量逻辑
    */
   public void payEnergyBill(DynamicPropertiesStore dynamicPropertiesStore,
       AccountStore accountStore, ForkController forkController, AccountCapsule origin,
@@ -141,14 +142,19 @@ public class ReceiptCapsule {
     }
 
     if ((!Objects.isNull(origin))&&caller.getAddress().equals(origin.getAddress())) {
+      //创建合约交易
+      //用户承担所有的能量费用
       payEnergyBill(dynamicPropertiesStore, accountStore, forkController, caller,
           receipt.getEnergyUsageTotal(), receipt.getResult(), energyProcessor, now);
     } else {
+      //调用合约交易
+      //合约承担的能量费用
       long originUsage = Math.multiplyExact(receipt.getEnergyUsageTotal(), percent) / 100;
       originUsage = getOriginUsage(dynamicPropertiesStore, origin, originEnergyLimit,
           energyProcessor,
           originUsage);
 
+      //用户承担的能量费用
       long callerUsage = receipt.getEnergyUsageTotal() - originUsage;
       energyProcessor.useEnergy(origin, originUsage, now);
       this.setOriginEnergyUsage(originUsage);
@@ -172,6 +178,7 @@ public class ReceiptCapsule {
     return Math.min(originUsage, energyProcessor.getAccountLeftEnergyFromFreeze(origin));
   }
 
+  //合约创建或执行 用户账户支付能量逻辑
   private void payEnergyBill(
       DynamicPropertiesStore dynamicPropertiesStore, AccountStore accountStore,
       ForkController forkController,
@@ -184,21 +191,26 @@ public class ReceiptCapsule {
     if (dynamicPropertiesStore.getAllowTvmFreeze() == 1) {
       accountEnergyLeft = callerEnergyLeft;
     } else {
+      //账户冻结TRX获取的剩余的能量
       accountEnergyLeft = energyProcessor.getAccountLeftEnergyFromFreeze(account);
     }
     if (accountEnergyLeft >= usage) {
+      //账户剩余能量足够支付交易能量
       energyProcessor.useEnergy(account, usage, now);
       this.setEnergyUsage(usage);
     } else {
+      //账户剩余能量不够支付交易能量 需要燃烧TRX获取能量
       energyProcessor.useEnergy(account, accountEnergyLeft, now);
 
       if (forkController.pass(ForkBlockVersionEnum.VERSION_3_6_5) &&
           dynamicPropertiesStore.getAllowAdaptiveEnergy() == 1) {
+        //统计block能量消耗
         long blockEnergyUsage =
             dynamicPropertiesStore.getBlockEnergyUsage() + (usage - accountEnergyLeft);
         dynamicPropertiesStore.saveBlockEnergyUsage(blockEnergyUsage);
       }
 
+      //1 engergy = 100 sun
       long sunPerEnergy = Constant.SUN_PER_ENERGY;
       long dynamicEnergyFee = dynamicPropertiesStore.getEnergyFee();
       if (dynamicEnergyFee > 0) {
@@ -207,14 +219,17 @@ public class ReceiptCapsule {
       long energyFee =
           (usage - accountEnergyLeft) * sunPerEnergy;
       this.setEnergyUsage(accountEnergyLeft);
+      //设置sun消耗量
       this.setEnergyFee(energyFee);
       long balance = account.getBalance();
+      //账户余额小于需要消耗的数量 报错终止
       if (balance < energyFee) {
         throw new BalanceInsufficientException(
             StringUtil.createReadableString(account.createDbKey()) + " insufficient balance");
       }
       account.setBalance(balance - energyFee);
 
+      //燃烧能量费用余额
       if (dynamicPropertiesStore.supportTransactionFeePool() &&
           !contractResult.equals(contractResult.OUT_OF_TIME)) {
         dynamicPropertiesStore.addTransactionFeePool(energyFee);

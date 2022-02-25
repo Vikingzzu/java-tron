@@ -95,14 +95,18 @@ public class EnergyProcessor extends ResourceProcessor {
     throw new RuntimeException("Not support");
   }
 
+  //燃烧账户能量逻辑
   public boolean useEnergy(AccountCapsule accountCapsule, long energy, long now) {
 
     long energyUsage = accountCapsule.getEnergyUsage();
     long latestConsumeTime = accountCapsule.getAccountResource().getLatestConsumeTimeForEnergy();
+    //账户质押TRX获取的能量
     long energyLimit = calculateGlobalEnergyLimit(accountCapsule);
 
+    //账户已使用的能量
     long newEnergyUsage = increase(energyUsage, 0, latestConsumeTime, now);
 
+    //如果账户剩余能量不够用  且配置合约不支持燃烧TRX 则终止
     if (energy > (energyLimit - newEnergyUsage)
         && dynamicPropertiesStore.getAllowTvmFreeze() == 0) {
       return false;
@@ -115,9 +119,11 @@ public class EnergyProcessor extends ResourceProcessor {
     accountCapsule.setLatestOperationTime(latestOperationTime);
     accountCapsule.setLatestConsumeTimeForEnergy(latestConsumeTime);
 
+    //消耗账户能量
     accountStore.put(accountCapsule.createDbKey(), accountCapsule);
 
     if (dynamicPropertiesStore.getAllowAdaptiveEnergy() == 1) {
+      //统计block能量消耗
       long blockEnergyUsage = dynamicPropertiesStore.getBlockEnergyUsage() + energy;
       dynamicPropertiesStore.saveBlockEnergyUsage(blockEnergyUsage);
     }
@@ -125,27 +131,36 @@ public class EnergyProcessor extends ResourceProcessor {
     return true;
   }
 
+  //计算账户质押TRX获取的能量
   public long calculateGlobalEnergyLimit(AccountCapsule accountCapsule) {
     long frozeBalance = accountCapsule.getAllFrozenBalanceForEnergy();
     if (frozeBalance < TRX_PRECISION) {
       return 0;
     }
 
+    //账户质押TRX数量
     long energyWeight = frozeBalance / TRX_PRECISION;
+    //获取全网的能量总量（50_000_000_000L）
     long totalEnergyLimit = dynamicPropertiesStore.getTotalEnergyCurrentLimit();
+    //全网质押TRX总量
     long totalEnergyWeight = dynamicPropertiesStore.getTotalEnergyWeight();
 
     assert totalEnergyWeight > 0;
 
+    //计算质押TRX获取的能量
     return (long) (energyWeight * ((double) totalEnergyLimit / totalEnergyWeight));
   }
 
+  //计算账户冻结TRX获取的剩余的能量
   public long getAccountLeftEnergyFromFreeze(AccountCapsule accountCapsule) {
     long now = getHeadSlot();
+    //总使用的能量
     long energyUsage = accountCapsule.getEnergyUsage();
     long latestConsumeTime = accountCapsule.getAccountResource().getLatestConsumeTimeForEnergy();
+    //账户质押TRX获取的能量
     long energyLimit = calculateGlobalEnergyLimit(accountCapsule);
 
+    //当前时间轮使用的能量
     long newEnergyUsage = increase(energyUsage, 0, latestConsumeTime, now);
 
     return max(energyLimit - newEnergyUsage, 0); // us

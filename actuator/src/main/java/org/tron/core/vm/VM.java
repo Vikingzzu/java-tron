@@ -313,6 +313,7 @@ public class VM {
           break;
       }
 
+      //--->增加opcode所需要消耗的能量综合为81
       program.spendEnergy(energyCost, op.name());
       program.checkCPUTimeLimit(op.name());
 

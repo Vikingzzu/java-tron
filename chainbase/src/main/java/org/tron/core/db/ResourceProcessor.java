@@ -41,6 +41,17 @@ abstract class ResourceProcessor {
     return increase(lastUsage, usage, lastTime, now, windowSize);
   }
 
+  //计算用户的剩余带宽
+
+  /**
+   * 计算用户的免费带宽使用量
+   * @param lastUsage 上次交易使用带宽
+   * @param usage 本次使用带宽
+   * @param lastTime 上次交易时间
+   * @param now 当前时间
+   * @param windowSize 时间窗口 24 * 3600 * 1000L/3000L
+   * @return 用户的免费带宽使用量
+   */
   protected long increase(long lastUsage, long usage, long lastTime, long now, long windowSize) {
     long averageLastUsage = divideCeil(lastUsage * precision, windowSize);
     long averageUsage = divideCeil(usage * precision, windowSize);
@@ -67,6 +78,7 @@ abstract class ResourceProcessor {
     return usage * windowSize / precision;
   }
 
+  //燃烧账户TRX
   protected boolean consumeFeeForBandwidth(AccountCapsule accountCapsule, long fee) {
     try {
       long latestOperationTime = dynamicPropertiesStore.getLatestBlockHeaderTimestamp();

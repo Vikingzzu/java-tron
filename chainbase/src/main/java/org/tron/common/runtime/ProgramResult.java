@@ -61,6 +61,7 @@ public class ProgramResult {
     return result;
   }
 
+  //设置能量消耗
   public void spendEnergy(long energy) {
     energyUsed += energy;
   }
@@ -114,6 +115,7 @@ public class ProgramResult {
     this.exception = exception;
   }
 
+  //获取合约交易能量消耗
   public long getEnergyUsed() {
     return energyUsed;
   }

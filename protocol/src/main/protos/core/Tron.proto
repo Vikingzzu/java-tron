@@ -310,8 +310,11 @@ message MarketOrderDetail {
 message Transaction {
   message Contract {
     enum ContractType {
+      //创建新账户
       AccountCreateContract = 0;
+      //普通交易转账
       TransferContract = 1;
+      //TRC10 token 转账
       TransferAssetContract = 2;
       VoteAssetContract = 3;
       VoteWitnessContract = 4;
@@ -331,6 +334,7 @@ message Transaction {
       SetAccountIdContract = 19;
       CustomContract = 20;
       CreateSmartContract = 30;
+      //TRC20 token 转账
       TriggerSmartContract = 31;
       GetContract = 32;
       UpdateSettingContract = 33;

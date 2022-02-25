@@ -64,7 +64,7 @@ public class Commons {
   /**
    * judge balance.
    */
-  //设置账户余额信息
+  //燃烧账户余额
   public static void adjustBalance(AccountStore accountStore, AccountCapsule account, long amount)
       throws BalanceInsufficientException {
 
