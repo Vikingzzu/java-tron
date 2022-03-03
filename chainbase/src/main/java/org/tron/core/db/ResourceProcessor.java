@@ -47,20 +47,25 @@ abstract class ResourceProcessor {
    * 计算用户的免费带宽使用量
    * @param lastUsage 上次交易使用带宽
    * @param usage 本次使用带宽
-   * @param lastTime 上次交易时间
-   * @param now 当前时间
+   * @param lastTime 上次交易区块槽
+   * @param now 最新块的区块槽
    * @param windowSize 时间窗口 24 * 3600 * 1000L/3000L
    * @return 用户的免费带宽使用量
    */
   protected long increase(long lastUsage, long usage, long lastTime, long now, long windowSize) {
+    //上次交易时已使用带宽24H内每个槽位恢复速率
     long averageLastUsage = divideCeil(lastUsage * precision, windowSize);
+    //本次交易使用带宽需要24H内每个槽位恢复带宽的速率
     long averageUsage = divideCeil(usage * precision, windowSize);
 
     if (lastTime != now) {
       assert now > lastTime;
       if (lastTime + windowSize > now) {
+        //计算已恢复的槽位差
         long delta = now - lastTime;
+        //计算未恢复比例
         double decay = (windowSize - delta) / (double) windowSize;
+        //计算当前槽位-已使用带宽24H内每个槽位恢复速率
         averageLastUsage = Math.round(averageLastUsage * decay);
       } else {
         averageLastUsage = 0;

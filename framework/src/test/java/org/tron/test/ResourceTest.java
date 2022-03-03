@@ -13,9 +13,9 @@ public class ResourceTest {
   public static void main(String[] args) {
     ResourceTest resourceTest = new ResourceTest();
 
-    long lastUsage = 2400L;
+    long lastUsage = 0L;
     long usage = 0L;
-    long lastTime = 1645545600L;
+    long lastTime = 0L;
     long now = 1645549200L;
 
     System.out.println("=======result : " + resourceTest.increase(lastUsage, usage, lastTime, now));

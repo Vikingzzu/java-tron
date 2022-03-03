@@ -79,6 +79,7 @@ public class DelegatedResourceAccountIndexCapsule implements
         .build();
   }
 
+  //新增ToAccount记录
   public void addToAccount(ByteString toAccount) {
     this.delegatedResourceAccountIndex = this.delegatedResourceAccountIndex.toBuilder()
         .addToAccounts(toAccount)

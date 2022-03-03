@@ -22,9 +22,12 @@ public class EnergyProcessor extends ResourceProcessor {
     super(dynamicPropertiesStore, accountStore);
   }
 
+  //获取最新块的区块槽
   public static long getHeadSlot(DynamicPropertiesStore dynamicPropertiesStore) {
+    //最新块区块时间
     return (dynamicPropertiesStore.getLatestBlockHeaderTimestamp() -
         Long.parseLong(CommonParameter.getInstance()
+            //创世快时间
             .getGenesisBlock().getTimestamp()))
         / BLOCK_PRODUCED_INTERVAL;
   }
@@ -160,7 +163,7 @@ public class EnergyProcessor extends ResourceProcessor {
     //账户质押TRX获取的能量
     long energyLimit = calculateGlobalEnergyLimit(accountCapsule);
 
-    //当前时间轮使用的能量
+    //当前使用的能量
     long newEnergyUsage = increase(energyUsage, 0, latestConsumeTime, now);
 
     return max(energyLimit - newEnergyUsage, 0); // us

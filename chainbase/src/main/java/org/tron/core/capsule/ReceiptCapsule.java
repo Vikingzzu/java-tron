@@ -150,6 +150,7 @@ public class ReceiptCapsule {
       //调用合约交易
       //合约承担的能量费用
       long originUsage = Math.multiplyExact(receipt.getEnergyUsageTotal(), percent) / 100;
+      //计算 合约承担的能量费用 的实际值
       originUsage = getOriginUsage(dynamicPropertiesStore, origin, originEnergyLimit,
           energyProcessor,
           originUsage);
@@ -163,9 +164,21 @@ public class ReceiptCapsule {
     }
   }
 
+  //计算 合约承担的能量费用 的实际值
+
+  /**
+   * 计算合约发行方实际承担的能量费用
+   * @param dynamicPropertiesStore 数据库
+   * @param origin 合约发行方账户
+   * @param originEnergyLimit  合约最大消耗能量limit
+   * @param energyProcessor  能量processor
+   * @param originUsage  合约发行方需要承担的能量费用
+   * @return  合约发行方实际承担的能量费用
+   */
   private long getOriginUsage(DynamicPropertiesStore dynamicPropertiesStore, AccountCapsule origin,
       long originEnergyLimit,
       EnergyProcessor energyProcessor, long originUsage) {
+
 
     if (dynamicPropertiesStore.getAllowTvmFreeze() == 1) {
       return Math.min(originUsage, Math.min(originEnergyLeft, originEnergyLimit));
@@ -210,7 +223,7 @@ public class ReceiptCapsule {
         dynamicPropertiesStore.saveBlockEnergyUsage(blockEnergyUsage);
       }
 
-      //1 engergy = 100 sun
+      //1 engergy = 280 sun
       long sunPerEnergy = Constant.SUN_PER_ENERGY;
       long dynamicEnergyFee = dynamicPropertiesStore.getEnergyFee();
       if (dynamicEnergyFee > 0) {

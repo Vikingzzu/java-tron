@@ -36,6 +36,7 @@ public class FreezeBalanceActuator extends AbstractActuator {
     super(ContractType.FreezeBalanceContract, FreezeBalanceContract.class);
   }
 
+  //质押TRX获取带宽/能量
   @Override
   public boolean execute(Object result) throws ContractExeException {
     TransactionResultCapsule ret = (TransactionResultCapsule) result;
@@ -54,6 +55,7 @@ public class FreezeBalanceActuator extends AbstractActuator {
       ret.setStatus(fee, code.FAILED);
       throw new ContractExeException(e.getMessage());
     }
+    //获取调用方账户
     AccountCapsule accountCapsule = accountStore
         .get(freezeBalanceContract.getOwnerAddress().toByteArray());
 
@@ -63,11 +65,13 @@ public class FreezeBalanceActuator extends AbstractActuator {
     }
 
     long now = dynamicStore.getLatestBlockHeaderTimestamp();
+    //计算冻结时间
     long duration = freezeBalanceContract.getFrozenDuration() * FROZEN_PERIOD;
-
+    //余额扣减冻结金额
     long newBalance = accountCapsule.getBalance() - freezeBalanceContract.getFrozenBalance();
 
     long frozenBalance = freezeBalanceContract.getFrozenBalance();
+    //计算冻结到期时间
     long expireTime = now + duration;
     byte[] ownerAddress = freezeBalanceContract.getOwnerAddress().toByteArray();
     byte[] receiverAddress = freezeBalanceContract.getReceiverAddress().toByteArray();
@@ -76,6 +80,7 @@ public class FreezeBalanceActuator extends AbstractActuator {
       case BANDWIDTH:
         if (!ArrayUtils.isEmpty(receiverAddress)
             && dynamicStore.supportDR()) {
+
           delegateResource(ownerAddress, receiverAddress, true,
               frozenBalance, expireTime);
           accountCapsule.addDelegatedFrozenBalanceForBandwidth(frozenBalance);
@@ -84,6 +89,7 @@ public class FreezeBalanceActuator extends AbstractActuator {
               frozenBalance + accountCapsule.getFrozenBalance();
           accountCapsule.setFrozenForBandwidth(newFrozenBalanceForBandwidth, expireTime);
         }
+        //增加全网TRX质押量
         dynamicStore
             .addTotalNetWeight(frozenBalance / TRX_PRECISION);
         break;
@@ -100,6 +106,7 @@ public class FreezeBalanceActuator extends AbstractActuator {
                   .getFrozenBalance();
           accountCapsule.setFrozenForEnergy(newFrozenBalanceForEnergy, expireTime);
         }
+        //增加全网TRX质押量
         dynamicStore
             .addTotalEnergyWeight(frozenBalance / TRX_PRECISION);
         break;
@@ -108,6 +115,7 @@ public class FreezeBalanceActuator extends AbstractActuator {
             frozenBalance + accountCapsule.getTronPowerFrozenBalance();
         accountCapsule.setFrozenForTronPower(newFrozenBalanceForTronPower, expireTime);
 
+        //增加全网TRON_POWER质押量
         dynamicStore
             .addTotalTronPowerWeight(frozenBalance / TRX_PRECISION);
         break;
@@ -262,6 +270,7 @@ public class FreezeBalanceActuator extends AbstractActuator {
     return 0;
   }
 
+  //处理ownerAddress 到 receiverAddress的代理质押TRX（获取带宽或能量）流程
   private void delegateResource(byte[] ownerAddress, byte[] receiverAddress, boolean isBandwidth,
       long balance, long expireTime) {
     AccountStore accountStore = chainBaseManager.getAccountStore();
@@ -272,13 +281,16 @@ public class FreezeBalanceActuator extends AbstractActuator {
     //modify DelegatedResourceStore
     DelegatedResourceCapsule delegatedResourceCapsule = delegatedResourceStore
         .get(key);
+    //查看是否有从ownerAddress到receiverAddress的代理质押记录
     if (delegatedResourceCapsule != null) {
+      //追加数据库代理质押TRX的总量和过期时间
       if (isBandwidth) {
         delegatedResourceCapsule.addFrozenBalanceForBandwidth(balance, expireTime);
       } else {
         delegatedResourceCapsule.addFrozenBalanceForEnergy(balance, expireTime);
       }
     } else {
+      //设置数据库代理质押TRX的总量和过期时间
       delegatedResourceCapsule = new DelegatedResourceCapsule(
           ByteString.copyFrom(ownerAddress),
           ByteString.copyFrom(receiverAddress));
@@ -291,7 +303,7 @@ public class FreezeBalanceActuator extends AbstractActuator {
     }
     delegatedResourceStore.put(key, delegatedResourceCapsule);
 
-    //modify DelegatedResourceAccountIndexStore
+    //modify DelegatedResourceAccountIndexStore （设置IndexStore索引表）
     {
       DelegatedResourceAccountIndexCapsule delegatedResourceAccountIndexCapsule = delegatedResourceAccountIndexStore
           .get(ownerAddress);

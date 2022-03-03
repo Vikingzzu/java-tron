@@ -49,6 +49,7 @@ public class DelegatedResourceCapsule implements ProtoCapsule<DelegatedResource>
     return this.delegatedResource.getFrozenBalanceForEnergy();
   }
 
+  //设置数据库代理质押TRX获取能量的总量和过期时间
   public void setFrozenBalanceForEnergy(long energy, long expireTime) {
     this.delegatedResource = this.delegatedResource.toBuilder()
         .setFrozenBalanceForEnergy(energy)
@@ -56,6 +57,7 @@ public class DelegatedResourceCapsule implements ProtoCapsule<DelegatedResource>
         .build();
   }
 
+  //追加数据库代理质押TRX获取能量的总量和过期时间
   public void addFrozenBalanceForEnergy(long energy, long expireTime) {
     this.delegatedResource = this.delegatedResource.toBuilder()
         .setFrozenBalanceForEnergy(this.delegatedResource.getFrozenBalanceForEnergy() + energy)
@@ -67,6 +69,7 @@ public class DelegatedResourceCapsule implements ProtoCapsule<DelegatedResource>
     return this.delegatedResource.getFrozenBalanceForBandwidth();
   }
 
+  //设置数据库代理质押TRX获取带宽的总量和过期时间
   public void setFrozenBalanceForBandwidth(long Bandwidth, long expireTime) {
     this.delegatedResource = this.delegatedResource.toBuilder()
         .setFrozenBalanceForBandwidth(Bandwidth)
@@ -74,6 +77,7 @@ public class DelegatedResourceCapsule implements ProtoCapsule<DelegatedResource>
         .build();
   }
 
+  //追加数据库代理质押TRX获取带宽的总量和过期时间
   public void addFrozenBalanceForBandwidth(long Bandwidth, long expireTime) {
     this.delegatedResource = this.delegatedResource.toBuilder()
         .setFrozenBalanceForBandwidth(this.delegatedResource.getFrozenBalanceForBandwidth()
