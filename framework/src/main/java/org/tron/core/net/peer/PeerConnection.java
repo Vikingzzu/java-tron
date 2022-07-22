@@ -117,14 +117,17 @@ public class PeerConnection extends Channel {
     msgQueue.fastSend(message);
   }
 
+  //握手成功建立连接逻辑
   public void onConnect() {
     long headBlockNum = helloMessageSend.getHeadBlockId().getNum();
     long peerHeadBlockNum = helloMessageReceive.getHeadBlockId().getNum();
 
+    //对方头块比我们高  开始发起同步
     if (peerHeadBlockNum > headBlockNum) {
       needSyncFromUs = false;
       syncService.startSync(this);
     } else {
+      //对方头块比我们低 写 SYNC_COMPLETED 状态
       needSyncFromPeer = false;
       if (peerHeadBlockNum == headBlockNum) {
         needSyncFromUs = false;

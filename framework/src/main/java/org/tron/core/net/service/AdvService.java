@@ -80,6 +80,7 @@ public class AdvService {
 
   public void init() {
 
+    //向外广播区块，交易清单 发送Inventory message
     spreadExecutor.scheduleWithFixedDelay(() -> {
       try {
         consumerInvToSpread();
@@ -88,6 +89,7 @@ public class AdvService {
       }
     }, 100, 30, TimeUnit.MILLISECONDS);
 
+    //抓取广播区块，交易清单 发送fetch-env_data message
     fetchExecutor.scheduleWithFixedDelay(() -> {
       try {
         consumerInvToFetch();
@@ -176,6 +178,7 @@ public class AdvService {
     return peersCount;
   }
 
+  //广播交易区块
   public void broadcast(Message msg) {
 
     if (fastForward) {
@@ -188,6 +191,7 @@ public class AdvService {
     }
 
     Item item;
+    //交易区块入缓存 方便 fetch
     if (msg instanceof BlockMessage) {
       BlockMessage blockMsg = (BlockMessage) msg;
       item = new Item(blockMsg.getMessageId(), InventoryType.BLOCK);
@@ -209,8 +213,10 @@ public class AdvService {
       return;
     }
 
+    //交易区块入缓存
     invToSpread.put(item, System.currentTimeMillis());
 
+    //如果是区块立即广播
     if (InventoryType.BLOCK.equals(item.getType())) {
       consumerInvToSpread();
     }
@@ -351,6 +357,7 @@ public class AdvService {
 
     public void sendInv() {
       send.forEach((peer, ids) -> ids.forEach((key, value) -> {
+        //快速转发节点不广播交易，只广播区块
         if (peer.isFastForwardPeer() && key.equals(InventoryType.TRX)) {
           return;
         }

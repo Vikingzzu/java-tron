@@ -36,10 +36,12 @@ public class DiscoveryExecutor {
   }
 
   public void start() {
+    //discoverer 定时任务30s 一次  刷新 homenode地址 最近的节点16个节点
     discoverer.scheduleWithFixedDelay(
         new DiscoverTask(nodeManager),
         1, KademliaOptions.DISCOVER_CYCLE, TimeUnit.SECONDS);
 
+    //refresher 定时任务7.2s 一次  刷新 Random地址 最近的节点16个节点
     refresher.scheduleWithFixedDelay(
         new RefreshTask(nodeManager),
         1, KademliaOptions.BUCKET_REFRESH, TimeUnit.MILLISECONDS);

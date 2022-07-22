@@ -59,6 +59,7 @@ public class BlockMsgHandler implements TronMsgHandler {
     BlockMessage blockMessage = (BlockMessage) msg;
     BlockId blockId = blockMessage.getBlockId();
 
+    //快速转发节点不校验，block请求，block大小，接收block时间
     if (!fastForward && !peer.isFastForwardPeer()) {
       check(peer, blockMessage);
     }

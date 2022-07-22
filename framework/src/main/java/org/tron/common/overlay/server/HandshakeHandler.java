@@ -78,6 +78,7 @@ public class HandshakeHandler extends ByteToMessageDecoder {
 
   @Override
   public void channelActive(ChannelHandlerContext ctx) throws Exception {
+    //握手成功
     logger.info("channel active, {}", ctx.channel().remoteAddress());
     channel.setChannelHandlerContext(ctx);
     if (remoteId.length == 64) {
@@ -122,9 +123,11 @@ public class HandshakeHandler extends ByteToMessageDecoder {
     this.remoteId = Hex.decode(remoteId);
   }
 
+  //发送hello msg
   protected void sendHelloMsg(ChannelHandlerContext ctx, long time) {
     HelloMessage message = new HelloMessage(
             nodeManager.getPublicHomeNode(), time, chainBaseManager);
+    //如果本节点是产块的SR节点 主动和中心转发节点建立连接
     fastForward.fillHelloMessage(message, channel);
     ((PeerConnection) channel).setHelloMessageSend(message);
     ctx.writeAndFlush(message.getSendData());
@@ -153,12 +156,14 @@ public class HandshakeHandler extends ByteToMessageDecoder {
 
     channel.setAddress(msg.getHelloMessage().getAddress());
 
+    //中心转发节点校验 握手的节点是不是正在产块的SR节点 不是的话则放弃握手
     if (!fastForward.checkHelloMessage(msg, channel)) {
       channel.disconnect(ReasonCode.UNEXPECTED_IDENTITY);
       return;
     }
 
     InetAddress address = ((InetSocketAddress) ctx.channel().remoteAddress()).getAddress();
+    //限制被动连接的数量 不能超过90%
     if (remoteId.length != 64
         && channelManager.getTrustNodes().getIfPresent(address) == null
         && !syncPool.isCanConnect()) {
@@ -168,6 +173,7 @@ public class HandshakeHandler extends ByteToMessageDecoder {
 
     long headBlockNum = chainBaseManager.getHeadBlockNum();
     long lowestBlockNum =  msg.getLowestBlockNum();
+    //判断我们的头块不能低于对方的最低块 (限制部分轻节点)
     if (lowestBlockNum > headBlockNum) {
       logger.info("Peer {} miss block, lowestBlockNum:{}, headBlockNum:{}",
               ctx.channel().remoteAddress(), lowestBlockNum, headBlockNum);
@@ -182,6 +188,7 @@ public class HandshakeHandler extends ByteToMessageDecoder {
       return;
     }
 
+    //判断是否有相同的创世块
     if (!Arrays
         .equals(chainBaseManager.getGenesisBlockId().getBytes(),
             msg.getGenesisBlockId().getBytes())) {
@@ -193,6 +200,7 @@ public class HandshakeHandler extends ByteToMessageDecoder {
       return;
     }
 
+    //如果我们的固化块高度高于对方   但我们的链不包含对方固化块   则说明不是同一种链
     if (chainBaseManager.getSolidBlockId().getNum() >= msg.getSolidBlockId().getNum()
         && !chainBaseManager.containBlockInMainChain(msg.getSolidBlockId())) {
       logger.info("Peer {} different solid block, peer->{}, me->{}", ctx.channel().remoteAddress(),
@@ -201,19 +209,23 @@ public class HandshakeHandler extends ByteToMessageDecoder {
       return;
     }
 
+    //非局域网节点 加入HelloMessageCache缓存  为了补充连接时过滤使用  SyncPool.test(285)
     if (msg.getFrom().getHost().equals(address.getHostAddress())) {
       channelManager.getHelloMessageCache().put(msg.getFrom().getHost(), msg.getHelloMessage());
     }
 
     ((PeerConnection) channel).setHelloMessageReceive(msg);
 
+    //统计接入流量
     channel.getNodeStatistics().messageStatistics.addTcpInMessage(msg);
 
+    //设置状态为HANDSHAKE_FINISHED  设置channel 的 startTime
     channel.publicHandshakeFinished(ctx, msg);
     if (!channelManager.processPeer(channel)) {
       return;
     }
 
+    //被动连接回复对方 HelloMsg
     if (remoteId.length != 64) {
       sendHelloMsg(ctx, msg.getTimestamp());
     }

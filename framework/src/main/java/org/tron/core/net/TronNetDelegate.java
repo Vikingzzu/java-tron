@@ -284,6 +284,7 @@ public class TronNetDelegate {
     }
   }
 
+  //交易入pending队列
   public void pushTransaction(TransactionCapsule trx) throws P2pException {
     try {
       trx.setTime(System.currentTimeMillis());

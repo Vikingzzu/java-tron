@@ -20,6 +20,11 @@ import org.tron.common.overlay.server.TronChannelInitializer;
 import org.tron.core.config.args.Args;
 import org.tron.protos.Protocol.ReasonCode;
 
+/**
+ * 建立远程连接时使用PeerClient  remoteId为对方的nodeid
+ * 建立连接时   activePeersCount ++
+ * 建立Tcp Channel成功，remoteId不为空时，activePeersCount ++；否则 passivePeersCount ++
+ */
 @Slf4j(topic = "net")
 @Component
 public class PeerClient {

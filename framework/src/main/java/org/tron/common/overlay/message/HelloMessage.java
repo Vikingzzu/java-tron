@@ -67,6 +67,7 @@ public class HelloMessage extends P2pMessage {
     builder.setGenesisBlockId(gBlockId);
     builder.setSolidBlockId(sBlockId);
     builder.setHeadBlockId(hBlockId);
+    //区分轻节点 全节点
     builder.setNodeType(nodeType);
     builder.setLowestBlockNum(lowestBlockNum);
 

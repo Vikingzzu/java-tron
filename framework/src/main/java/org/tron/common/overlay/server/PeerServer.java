@@ -15,6 +15,9 @@ import org.springframework.stereotype.Component;
 import org.tron.common.parameter.CommonParameter;
 import org.tron.core.config.args.Args;
 
+/**
+ * 本地启动的peerServer  默认remoteId为空
+ */
 @Slf4j(topic = "net")
 @Component
 public class PeerServer {

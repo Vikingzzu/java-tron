@@ -177,11 +177,14 @@ public class NodeManager implements EventHandler {
         + address.getPort();
   }
 
+  //新节点放入nodeHandlerMap 中默认状态为 DISCOVERED
   public NodeHandler getNodeHandler(Node n) {
     String key = getKey(n);
     NodeHandler ret = nodeHandlerMap.get(key);
     if (ret == null) {
+      //整理nodeHandlerMap
       trimTable();
+      //新的node 默认置为 DISCOVERED 状态
       ret = new NodeHandler(n, this);
       nodeHandlerMap.put(key, ret);
     } else if (ret.getNode().isDiscoveryNode() && !n.isDiscoveryNode()) {
@@ -190,8 +193,11 @@ public class NodeManager implements EventHandler {
     return ret;
   }
 
+  //整理nodeHandlerMap
   private void trimTable() {
+    //nodeHandlerMap最多有3000个节点
     if (nodeHandlerMap.size() > NODES_TRIM_THRESHOLD) {
+      //去除p2p版本不一致的节点
       nodeHandlerMap.values().forEach(handler -> {
         if (!handler.getNode().isConnectible(Args.getInstance().getNodeP2pVersion())) {
           nodeHandlerMap.values().remove(handler);
@@ -199,6 +205,7 @@ public class NodeManager implements EventHandler {
       });
     }
     if (nodeHandlerMap.size() > NODES_TRIM_THRESHOLD) {
+      //根据分数排序 整理 nodeHandlerMap 到2000
       List<NodeHandler> sorted = new ArrayList<>(nodeHandlerMap.values());
       sorted.sort(Comparator.comparingInt(o -> o.getNodeStatistics().getReputation()));
       for (NodeHandler handler : sorted) {
@@ -273,12 +280,16 @@ public class NodeManager implements EventHandler {
   public List<NodeHandler> getNodes(Predicate<NodeHandler> predicate, int limit) {
     List<NodeHandler> filtered = new ArrayList<>();
     for (NodeHandler handler : nodeHandlerMap.values()) {
+      //所有节点中过滤 排除条件 过滤p2p版本 端口
       if (handler.getNode().isConnectible(Args.getInstance().getNodeP2pVersion())
+          //过滤homenode节点 RecentlyDisconnect节点   BadPeers节点 相同ip连接超过2个的节点  正在使用的节点  最近连接的节点
           && predicate.test(handler)) {
+        //设置分数
         handler.setReputation(handler.getNodeStatistics().getReputation());
         filtered.add(handler);
       }
     }
+    //根据分数倒序排列  选取前limit个node 返回
     filtered.sort(Comparator.comparingInt(handler -> -handler.getReputation()));
     return CollectionUtils.truncate(filtered, limit);
   }

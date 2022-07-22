@@ -36,6 +36,9 @@ import org.tron.common.overlay.server.WireTrafficStats;
 import org.tron.common.parameter.CommonParameter;
 import org.tron.core.config.args.Args;
 
+/**
+ * 节点发现模块 DiscoverTask RefreshTask
+ */
 @Slf4j(topic = "discover")
 @Component
 public class DiscoverServer {

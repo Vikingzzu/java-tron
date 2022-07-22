@@ -105,6 +105,7 @@ public class TransactionsMsgHandler implements TronMsgHandler {
     }, 1000, 20, TimeUnit.MILLISECONDS);
   }
 
+  //处理交易
   private void handleTransaction(PeerConnection peer, TransactionMessage trx) {
     if (peer.isDisconnect()) {
       logger.warn("Drop trx {} from {}, peer is disconnect.", trx.getMessageId(),
@@ -117,7 +118,9 @@ public class TransactionsMsgHandler implements TronMsgHandler {
     }
 
     try {
+      //交易入pending队列
       tronNetDelegate.pushTransaction(trx.getTransactionCapsule());
+
       advService.broadcast(trx);
     } catch (P2pException e) {
       logger.warn("Trx {} from peer {} process failed. type: {}, reason: {}",

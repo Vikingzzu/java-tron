@@ -63,6 +63,7 @@ public class SyncService {
   private volatile boolean fetchFlag = false;
 
   public void init() {
+    //定期同步区块 发送fetch_env_data message
     fetchExecutor.scheduleWithFixedDelay(() -> {
       try {
         if (fetchFlag) {
@@ -74,6 +75,7 @@ public class SyncService {
       }
     }, 10, 1, TimeUnit.SECONDS);
 
+    //定期处理区块
     blockHandleExecutor.scheduleWithFixedDelay(() -> {
       try {
         if (handleFlag) {
@@ -100,6 +102,7 @@ public class SyncService {
     syncNext(peer);
   }
 
+  //开始同步区块
   public void syncNext(PeerConnection peer) {
     try {
       if (peer.getSyncChainRequested() != null) {

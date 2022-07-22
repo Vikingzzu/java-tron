@@ -1,12 +1,6 @@
 package org.tron.consensus.dpos;
 
-import static org.tron.core.config.Parameter.ChainConstant.BLOCK_PRODUCED_INTERVAL;
-import static org.tron.core.config.Parameter.ChainConstant.MAX_ACTIVE_WITNESS_NUM;
-
 import com.google.protobuf.ByteString;
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +9,13 @@ import org.tron.consensus.ConsensusDelegate;
 import org.tron.consensus.base.State;
 import org.tron.core.capsule.BlockCapsule;
 import org.tron.core.capsule.BlockCapsule.BlockId;
+
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.tron.core.config.Parameter.ChainConstant.BLOCK_PRODUCED_INTERVAL;
+import static org.tron.core.config.Parameter.ChainConstant.MAX_ACTIVE_WITNESS_NUM;
 
 @Slf4j(topic = "consensus")
 @Component

@@ -34,6 +34,10 @@ import org.tron.protos.Protocol.ReasonCode;
 @Component
 public class ChannelManager {
 
+  /**
+   * 握手成功加入activePeers       ChannelManager(190)
+   * ChannelManager.activePeers.size = SyncPool.activePeersCount + SyncPool.passivePeersCount
+   */
   private final Map<ByteArrayWrapper, Channel> activePeers = new ConcurrentHashMap<>();
   @Autowired
   private PeerServer peerServer;
@@ -50,16 +54,35 @@ public class ChannelManager {
   private Cache<InetAddress, ReasonCode> recentlyDisconnected = CacheBuilder.newBuilder()
       .maximumSize(1000).expireAfterWrite(30, TimeUnit.SECONDS).recordStats().build();
 
+  //握手成功 24h 缓存
   @Getter
   private Cache<String, Protocol.HelloMessage> helloMessageCache = CacheBuilder.newBuilder()
           .maximumSize(2000).expireAfterWrite(24, TimeUnit.HOURS).recordStats().build();
 
+  /**
+   * 1. TCP连接满时不会被断开连接
+   * 2. 建立连接(handleHelloMsg)时不受recentlyDisconnected，badPeers，TOO_MANY_PEERS，TOO_MANY_PEERS_WITH_SAME_IP的影响
+   * 3. PassiveNodes  ActiveNodes  FastForwardNodes 均加入 trustNodes
+   */
   @Getter
   private Cache<InetAddress, Node> trustNodes = CacheBuilder.newBuilder().maximumSize(100).build();
 
+  /**
+   * 1. 配置文件中的ActiveNodes
+   * 2. FastForwardNodes节点
+   */
   @Getter
   private Map<InetAddress, Node> activeNodes = new ConcurrentHashMap();
 
+  /**
+   * 1. 接收处理区块过程中，快速转发节点不校验 block请求，block大小，接收block时间  BlockMsgHandler(63)
+   * 2. 广播过程汇总，快速转发节点不广播交易，只广播区块，走fastsend 直接添加到队列发送
+   * AdvService.sendInv(358)   BlockMsgHandler.broadcast(155)
+   * 3. 中心转发节点不接收交易，因为不发送交易的 FETCH_ENV_DATA 消息  AdvService.sendInv(358)
+   * 4. 产块的SR节点握手时 会主动连接 fastForwardNodes节点      FastForward.fillHelloMessage(87)
+   * 5. 中心转发节点只能连接正在产块的SR节点(收到握手消息时校验)    HandshakeHandler(160) FastForward.checkHelloMessage(105)
+   * 6. fastforward节点 不执行节点发现逻辑  DiscoverServer !parameter.isFastForward(65)
+   */
   @Getter
   private Map<InetAddress, Node> fastForwardNodes = new ConcurrentHashMap();
 
@@ -158,15 +181,19 @@ public class ChannelManager {
     }
 
     Channel channel = activePeers.get(peer.getNodeIdWrapper());
+    //重复建立连接 断开比较晚的连接
     if (channel != null) {
+      //如果新连接的时间早于已有连接 则断开已有连接，加入新链接
       if (channel.getStartTime() > peer.getStartTime()) {
         logger.info("Disconnect connection established later, {}", channel.getNode());
         channel.disconnect(DUPLICATE_PEER);
       } else {
+        //如果新连接的时间晚于已有连接 则断开新链接 直接返回
         peer.disconnect(DUPLICATE_PEER);
         return false;
       }
     }
+    //握手成功加入activePeers
     activePeers.put(peer.getNodeIdWrapper(), peer);
     logger.info("Add active peer {}, total active peers: {}", peer, activePeers.size());
     return true;

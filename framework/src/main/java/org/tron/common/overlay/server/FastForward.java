@@ -66,6 +66,7 @@ public class FastForward {
       return;
     }
 
+    //fastforward 定期维护
     executorService.scheduleWithFixedDelay(() -> {
       try {
         if (witnessScheduleStore.getActiveWitnesses().contains(witnessAddress)
@@ -80,6 +81,7 @@ public class FastForward {
     }, 30, 100, TimeUnit.SECONDS);
   }
 
+  //如果本节点是产块的SR节点 主动和中心转发节点建立连接
   public void fillHelloMessage(HelloMessage message, Channel channel) {
     if (isActiveWitness()) {
       fastForwardNodes.forEach(node -> {
@@ -100,6 +102,7 @@ public class FastForward {
     }
   }
 
+  //中心转发节点校验 握手的节点是不是正在产块的SR节点
   public boolean checkHelloMessage(HelloMessage message, Channel channel) {
     if (!parameter.isFastForward()) {
       return true;

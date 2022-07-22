@@ -36,6 +36,7 @@ public class PeerStatusCheck {
     peerStatusCheckExecutor.shutdown();
   }
 
+  //节点状态检查
   public void statusCheck() {
 
     long now = System.currentTimeMillis();
@@ -44,17 +45,20 @@ public class PeerStatusCheck {
 
       boolean isDisconnected = false;
 
+      //30s内 没有 同步 bothhave 则置为超时
       if (peer.isNeedSyncFromPeer()
           && peer.getBlockBothHaveUpdateTime() < now - blockUpdateTimeout) {
         logger.warn("Peer {} not sync for a long time.", peer.getInetAddress());
         isDisconnected = true;
       }
 
+      //广播20s超时
       if (!isDisconnected) {
         isDisconnected = peer.getAdvInvRequest().values().stream()
             .anyMatch(time -> time < now - NetConstants.ADV_TIME_OUT);
       }
 
+      //同步超过5s超时
       if (!isDisconnected) {
         isDisconnected = peer.getSyncBlockRequested().values().stream()
             .anyMatch(time -> time < now - NetConstants.SYNC_TIME_OUT);

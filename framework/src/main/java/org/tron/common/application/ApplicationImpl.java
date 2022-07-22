@@ -56,6 +56,7 @@ public class ApplicationImpl implements Application {
    * start up the app.
    */
   public void startup() {
+    //网络TCP模块启动
     tronNetService.start();
     consensusService.start();
     MetricsUtil.init();

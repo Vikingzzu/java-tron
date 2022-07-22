@@ -38,12 +38,20 @@ import org.tron.protos.Protocol;
 @Component
 public class SyncPool {
 
+  /**
+   * 主动和被动建立的连接 均加入activePeers   onConnect++   onDisconnect--
+   */
   private final List<PeerConnection> activePeers = Collections
       .synchronizedList(new ArrayList<>());
+  //被动建立连接的数量   onConnect++   onDisconnect--
   private final AtomicInteger passivePeersCount = new AtomicInteger(0);
+  //主动建立连接的数量(通过PeerClient)  onConnect++   onDisconnect--
   private final AtomicInteger activePeersCount = new AtomicInteger(0);
+  //默认0.3
   private double factor = Args.getInstance().getConnectFactor();
+  //默认0.1
   private double activeFactor = Args.getInstance().getActiveConnectFactor();
+  //主动建立的链接加入缓存 180秒不会重复发起TCP连接，避免发起无效的连接请求
   private Cache<NodeHandler, Long> nodeHandlerCache = CacheBuilder.newBuilder()
       .maximumSize(1000).expireAfterWrite(180, TimeUnit.SECONDS).recordStats().build();
 
@@ -60,14 +68,21 @@ public class SyncPool {
 
   private CommonParameter commonParameter = CommonParameter.getInstance();
 
+  //最大活跃连接数 默认30
   private int maxActiveNodes = commonParameter.getNodeMaxActiveNodes();
 
+  //默认2
   private int maxActivePeersWithSameIp = commonParameter.getNodeMaxActiveNodesWithSameIp();
 
   private ScheduledExecutorService poolLoopExecutor = Executors.newSingleThreadScheduledExecutor();
 
   private ScheduledExecutorService logExecutor = Executors.newSingleThreadScheduledExecutor();
 
+  /**
+   * 主动建立远程连接时使用PeerClient  remoteId为对方的nodeid
+   * 建立连接时   activePeersCount ++
+   * 建立Tcp Channel成功，remoteId不为空时，activePeersCount ++；否则 passivePeersCount ++
+   */
   private PeerClient peerClient;
 
   private int disconnectTimeout = 60_000;
@@ -78,6 +93,7 @@ public class SyncPool {
 
     peerClient = ctx.getBean(PeerClient.class);
 
+    //维护连接池
     poolLoopExecutor.scheduleWithFixedDelay(() -> {
       try {
         check();
@@ -87,6 +103,7 @@ public class SyncPool {
       }
     }, 100, 3600, TimeUnit.MILLISECONDS);
 
+    //打印连接状态日志
     logExecutor.scheduleWithFixedDelay(() -> {
       try {
         logActivePeers();
@@ -96,6 +113,7 @@ public class SyncPool {
     }, 30, 10, TimeUnit.SECONDS);
   }
 
+  //检查提出 disconnect 连接   重置分数优先级
   private void check() {
     for (PeerConnection peer : new ArrayList<>(activePeers)) {
       long now = System.currentTimeMillis();
@@ -116,6 +134,9 @@ public class SyncPool {
       addressInUse.add(channel.getInetAddress());
     });
 
+    /**
+     * 找出在ActiveNodes中但不在ActivePeers中的node优先加载(优先加载配置文件中的节点)
+     */
     channelManager.getActiveNodes().forEach((address, node) -> {
       nodesInUse.add(node.getHexId());
       if (!addressInUse.contains(address)) {
@@ -123,17 +144,27 @@ public class SyncPool {
       }
     });
 
+    /**
+     * maxActiveNodes * factor   最小建立连接的数量
+     * maxActiveNodes * activeFactor  最小建立主动连接的数量
+     * 选取比较大的值 = 还需要建立连接的树龄
+     */
     int size = Math.max((int) (maxActiveNodes * factor) - activePeers.size(),
         (int) (maxActiveNodes * activeFactor - activePeersCount.get()));
     int lackSize = size - connectNodes.size();
     if (lackSize > 0) {
+      //把HomeNode节点加入到正在使用的节点集合中
       nodesInUse.add(nodeManager.getPublicHomeNode().getHexId());
+
+      //根据分数排序 获取前N个node
       List<NodeHandler> newNodes = nodeManager.getNodes(new NodeSelector(nodesInUse), lackSize);
       connectNodes.addAll(newNodes);
     }
 
     connectNodes.forEach(n -> {
+      //主动建立连接
       peerClient.connectAsync(n, false);
+      //主动建立的链接加入缓存 180秒不会重复发起TCP连接，避免发起无效的连接请求
       nodeHandlerCache.put(n, System.currentTimeMillis());
     });
   }
@@ -182,9 +213,19 @@ public class SyncPool {
     return peers;
   }
 
+  /**
+   * 握手成功逻辑
+   * 加锁原因是因为需要更新 passivePeersCount  activePeersCount activePeers
+   *
+   */
   public synchronized void onConnect(Channel peer) {
     PeerConnection peerConnection = (PeerConnection) peer;
     if (!activePeers.contains(peerConnection)) {
+
+      /**
+       * 被动建立连接时 默认remoteId为空    PeerClient 主动建立连接时 remoteId为对方的nodeid
+       * remoteId不为空时，activePeersCount ++；否则 passivePeersCount ++
+       */
       if (!peerConnection.isActive()) {
         passivePeersCount.incrementAndGet();
       } else {
@@ -241,6 +282,7 @@ public class SyncPool {
     }
 
     @Override
+    //过滤homenode节点 RecentlyDisconnect节点   BadPeers节点 相同ip连接超过2个的节点  正在使用的节点  最近连接的节点 最近握手成功的节点
     public boolean test(NodeHandler handler) {
       long headNum = chainBaseManager.getHeadBlockNum();
       InetAddress inetAddress = handler.getInetSocketAddress().getAddress();

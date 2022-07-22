@@ -66,11 +66,17 @@ public class TronNetService {
   private FetchBlockService fetchBlockService;
 
   public void start() {
+    //加载配置节点
     channelManager.init();
+    //广播服务(接收广播，发送广播)
     advService.init();
+    //块同步服务
     syncService.init();
+    //节点状态检查，剔除timeout节点
     peerStatusCheck.init();
+    //处理合约交易
     transactionsMsgHandler.init();
+    //fetch block 超时找新节点重新获取服务
     fetchBlockService.init();
     logger.info("TronNetService start successfully.");
   }

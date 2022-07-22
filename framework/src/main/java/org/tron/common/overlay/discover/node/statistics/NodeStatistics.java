@@ -129,6 +129,7 @@ public class NodeStatistics {
     tronLastLocalDisconnectReason = reason;
   }
 
+  //降低分数优先级 disconnectTimes计次
   public void notifyDisconnect() {
     lastDisconnectedTime = System.currentTimeMillis();
     if (firstDisconnectedTime <= 0) {

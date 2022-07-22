@@ -69,6 +69,7 @@ public class Channel {
 
   private volatile boolean isDisconnect;
 
+  //调用close 或 disconnect方法时设置disconnectTime
   @Getter
   private volatile long disconnectTime;
 
@@ -106,6 +107,7 @@ public class Channel {
     pbftHandler.setMsgQueue(msgQueue);
   }
 
+  //设置状态为HANDSHAKE_FINISHED  设置channel 的 startTime
   public void publicHandshakeFinished(ChannelHandlerContext ctx, HelloMessage msg) {
     isTrustPeer = channelManager.getTrustNodes().getIfPresent(getInetAddress()) != null;
     isFastForwardPeer = channelManager.getFastForwardNodes().containsKey(getInetAddress());

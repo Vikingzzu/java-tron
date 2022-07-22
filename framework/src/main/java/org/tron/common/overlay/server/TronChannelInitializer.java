@@ -12,6 +12,10 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.tron.core.net.peer.PeerConnection;
 
+/**
+ * 被动建立连接时 默认remoteId为空    PeerClient 主动建立连接时 remoteId为对方的nodeid
+ * 建立Tcp Channel成功，remoteId不为空时，activePeersCount ++；否则 passivePeersCount ++
+ */
 @Slf4j(topic = "net")
 @Component
 @Scope("prototype")
