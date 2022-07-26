@@ -28,6 +28,7 @@ public class InventoryMsgHandler implements TronMsgHandler {
 
   private int maxCountIn10s = 10_000;
 
+  //处理广播清单消息
   @Override
   public void processMessage(PeerConnection peer, TronMessage msg) {
     InventoryMessage inventoryMessage = (InventoryMessage) msg;
@@ -54,6 +55,7 @@ public class InventoryMsgHandler implements TronMsgHandler {
       return false;
     }
 
+    //交易消息限流
     if (type.equals(InventoryType.TRX)) {
       int count = peer.getNodeStatistics().messageStatistics.tronInTrxInventoryElement.getCount(10);
       if (count > maxCountIn10s) {

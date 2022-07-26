@@ -55,6 +55,7 @@ public class AdvService {
 
   private ConcurrentHashMap<Item, Long> invToFetch = new ConcurrentHashMap<>();
 
+  //待发送广播队列
   private ConcurrentHashMap<Item, Long> invToSpread = new ConcurrentHashMap<>();
 
   private Cache<Item, Long> invToFetchCache = CacheBuilder.newBuilder()
@@ -110,17 +111,21 @@ public class AdvService {
   }
 
   public boolean addInv(Item item) {
+    //fastforward节点不获取交易
     if (fastForward && item.getType().equals(InventoryType.TRX)) {
       return false;
     }
 
+    //交易已经收到过
     if (item.getType().equals(InventoryType.TRX) && trxCache.getIfPresent(item) != null) {
       return false;
     }
+    //区块已经收到过
     if (item.getType().equals(InventoryType.BLOCK) && blockCache.getIfPresent(item) != null) {
       return false;
     }
 
+    //加锁 另一个线程同时操作invToFetch  防止重复广播
     synchronized (this) {
       if (invToFetchCache.getIfPresent(item) != null) {
         return false;
@@ -178,13 +183,19 @@ public class AdvService {
     return peersCount;
   }
 
-  //广播交易区块
+  /**
+   * 广播交易区块
+   * 1. 产块成功后，广播区块。  BlockHandleImpl tronNetService.broadcast(53)
+   * 2.接收到区块处理区块并广播。
+   * 3.接收交易广播。
+   */
   public void broadcast(Message msg) {
 
     if (fastForward) {
       return;
     }
 
+    //广播队列大于1000  丢弃消息
     if (invToSpread.size() > MAX_SPREAD_SIZE) {
       logger.warn("Drop message, type: {}, ID: {}.", msg.getType(), msg.getMessageId());
       return;
@@ -197,6 +208,7 @@ public class AdvService {
       item = new Item(blockMsg.getMessageId(), InventoryType.BLOCK);
       logger.info("Ready to broadcast block {}", blockMsg.getBlockId().getString());
       blockMsg.getBlockCapsule().getTransactions().forEach(transactionCapsule -> {
+        //广播区块时删除广播队列中区块包含的交易
         Sha256Hash tid = transactionCapsule.getTransactionId();
         invToSpread.remove(tid);
         trxCache.put(new Item(tid, InventoryType.TRX),
@@ -213,7 +225,7 @@ public class AdvService {
       return;
     }
 
-    //交易区块入缓存
+    //交易区块入广播队列
     invToSpread.put(item, System.currentTimeMillis());
 
     //如果是区块立即广播
@@ -260,6 +272,7 @@ public class AdvService {
     }
   }
 
+  //广播发送fetch逻辑
   private void consumerInvToFetch() {
     Collection<PeerConnection> peers = tronNetDelegate.getActivePeer().stream()
         .filter(peer -> peer.isIdle())
@@ -272,6 +285,7 @@ public class AdvService {
         return;
       }
       invToFetch.forEach((item, time) -> {
+        //超过15s 不再fetch
         if (time < now - MSG_CACHE_DURATION_IN_BLOCKS * BLOCK_PRODUCED_INTERVAL) {
           logger.info("This obj is too late to fetch, type: {} hash: {}.", item.getType(),
                   item.getHash());
@@ -279,6 +293,7 @@ public class AdvService {
           invToFetchCache.invalidate(item);
           return;
         }
+        //一个peer一次最多fetch1000
         peers.stream().filter(peer -> peer.getAdvInvReceive().getIfPresent(item) != null
                 && invSender.getSize(peer) < MAX_TRX_FETCH_PER_PEER)
                 .sorted(Comparator.comparingInt(peer -> invSender.getSize(peer)))
@@ -293,6 +308,7 @@ public class AdvService {
     invSender.sendFetch();
   }
 
+  //广播方法
   private synchronized void consumerInvToSpread() {
 
     List<PeerConnection> peers = tronNetDelegate.getActivePeer().stream()
@@ -308,6 +324,7 @@ public class AdvService {
     invToSpread.forEach((item, time) -> peers.forEach(peer -> {
       if (peer.getAdvInvReceive().getIfPresent(item) == null
           && peer.getAdvInvSpread().getIfPresent(item) == null
+          //只广播接收到 3s内的区块
           && !(item.getType().equals(InventoryType.BLOCK)
           && System.currentTimeMillis() - time > BLOCK_PRODUCED_INTERVAL)) {
         peer.getAdvInvSpread().put(item, Time.getCurrentMillis());

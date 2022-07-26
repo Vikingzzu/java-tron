@@ -71,15 +71,21 @@ public class NodeManager implements EventHandler {
     this.chainBaseManager = chainBaseManager;
     discoveryEnabled = commonParameter.isNodeDiscoveryEnable();
 
+    /**
+     * 设置homeNode 信息
+     * homenode 的ip 为ping 得到的真实外网ip
+     */
     homeNode = new Node(Node.getNodeId(), commonParameter.getNodeExternalIp(),
         commonParameter.getNodeListenPort());
 
+    //添加配置文件种子节点信息
     for (String boot : commonParameter.getSeedNode().getIpList()) {
       bootNodes.add(Node.instanceOf(boot));
     }
 
     logger.info("homeNode : {}", homeNode);
 
+    //初始化k表
     table = new NodeTable(homeNode);
 
     this.pongTimer = Executors.newSingleThreadScheduledExecutor();
@@ -94,8 +100,11 @@ public class NodeManager implements EventHandler {
     if (!inited) {
       inited = true;
 
+      //根据配置 读取数据库节点    node节点定时入库
       if (commonParameter.isNodeDiscoveryPersist()) {
+        //读取数据库节点 开始节点发现
         dbRead();
+        //节点入库
         nodeManagerTasksTimer.scheduleAtFixedRate(new TimerTask() {
           @Override
           public void run() {
@@ -104,6 +113,7 @@ public class NodeManager implements EventHandler {
         }, DB_COMMIT_RATE, DB_COMMIT_RATE);
       }
 
+      //boot 节点开始节点发现
       for (Node node : bootNodes) {
         getNodeHandler(node);
       }
@@ -188,6 +198,7 @@ public class NodeManager implements EventHandler {
       ret = new NodeHandler(n, this);
       nodeHandlerMap.put(key, ret);
     } else if (ret.getNode().isDiscoveryNode() && !n.isDiscoveryNode()) {
+      // nodeHandlerMap中节点的信息是FakeNodeId  新更新的节点信息不是FakeNodeId  则更新 真实的 node节点 信息
       ret.setNode(n);
     }
     return ret;
@@ -229,6 +240,9 @@ public class NodeManager implements EventHandler {
     return getNodeHandler(n).getNodeStatistics();
   }
 
+  /**
+   * 接收到节点发现消息后 重置 node 的真实id   isFakeNodeId 置为false
+   */
   @Override
   public void handleEvent(UdpEvent udpEvent) {
     Message m = udpEvent.getMessage();

@@ -40,6 +40,7 @@ import org.tron.core.config.args.Args;
 @Slf4j(topic = "discover")
 public class NodeHandler {
 
+  //默认ping 超时时间15s
   private static long pingTimeout = Args.getInstance().getNodeDiscoveryPingTimeout();
   private Node sourceNode;
   private Node node;
@@ -98,7 +99,10 @@ public class NodeHandler {
     changeState(State.EVICTCANDIDATE);
   }
 
-  // Manages state transfers
+  /**
+   * Manages state transfers
+   * 1. 初始通过getNodeHandler方法进入的节点状态为 DISCOVERED  changeState(State.DISCOVERED)
+   */
   public void changeState(State newState) {
     State oldState = state;
     if (newState == State.DISCOVERED) {
@@ -188,6 +192,7 @@ public class NodeHandler {
       return;
     }
     waitForNeighbors = false;
+    //收到新的Neighbours 入k表
     for (Node n : msg.getNodes()) {
       if (!nodeManager.getPublicHomeNode().getHexId().equals(n.getHexId())) {
         nodeManager.getNodeHandler(n);
@@ -200,6 +205,7 @@ public class NodeHandler {
     sendNeighbours(closest, msg.getTimestamp());
   }
 
+  //ping 超时时间15s 默认执行3次
   public void handleTimedOut() {
     waitForPong = false;
     if (pingTrials.getAndDecrement() > 0) {

@@ -90,6 +90,7 @@ public class FetchInvDataMsgHandler implements TronMsgHandler {
         transactions.add(((TransactionMessage) message).getTransactionCapsule().getInstance());
         size += ((TransactionMessage) message).getTransactionCapsule().getInstance()
             .getSerializedSize();
+        //交易消息大小达到1M立即发送
         if (size > MAX_SIZE) {
           peer.sendMessage(new TransactionsMessage(transactions));
           transactions = Lists.newArrayList();
@@ -172,10 +173,12 @@ public class FetchInvDataMsgHandler implements TronMsgHandler {
           long blockNum = new BlockId(hash).getNum();
           long minBlockNum =
               peer.getLastSyncBlockId().getNum() - 2 * NetConstants.SYNC_FETCH_BATCH_NUM;
+          //需要广播的区块号  小于上次同步区块号-4000 则抛出异常     因为SyncBlockToFetch长度最大为4000
           if (blockNum < minBlockNum) {
             throw new P2pException(TypeEnum.BAD_MESSAGE,
                 "minBlockNum: " + minBlockNum + ", blockNum: " + blockNum);
           }
+          //已经发送的block 不重复发送
           if (peer.getSyncBlockIdCache().getIfPresent(hash) != null) {
             throw new P2pException(TypeEnum.BAD_MESSAGE,
                 new BlockId(hash).getString() + " is exist");

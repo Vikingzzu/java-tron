@@ -31,6 +31,7 @@ public class BackupManager implements EventHandler {
 
   private int port = parameter.getBackupPort();
 
+  //默认3s
   private int keepAliveInterval = parameter.getKeepAliveInterval();
 
   private int keepAliveTimeout = keepAliveInterval * 6;
@@ -92,9 +93,11 @@ public class BackupManager implements EventHandler {
         if (!status.equals(MASTER)
             && System.currentTimeMillis() - lastKeepAliveTime > keepAliveTimeout) {
           if (status.equals(SLAVER)) {
+            //SLAVER-> INIT
             setStatus(INIT);
             lastKeepAliveTime = System.currentTimeMillis();
           } else {
+            //INIT-> MASTER
             setStatus(MASTER);
           }
         }
@@ -130,6 +133,7 @@ public class BackupManager implements EventHandler {
     int peerPriority = keepAliveMessage.getPriority();
     String peerIp = sender.getAddress().getHostAddress();
 
+    //INIT 状态根据priority 优先级不是最高的都是SLAVER
     if (status.equals(INIT) && (keepAliveMessage.getFlag() || peerPriority > priority)) {
       setStatus(SLAVER);
       return;

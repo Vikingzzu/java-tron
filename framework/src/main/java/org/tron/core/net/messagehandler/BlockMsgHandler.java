@@ -64,10 +64,13 @@ public class BlockMsgHandler implements TronMsgHandler {
       check(peer, blockMessage);
     }
 
+    //接收同步区块逻辑
     if (peer.getSyncBlockRequested().containsKey(blockId)) {
+      //主动发送fetch_env_data获取的block逻辑
       peer.getSyncBlockRequested().remove(blockId);
       syncService.processBlock(peer, blockMessage);
     } else {
+      //接收广播区块逻辑
       Item item = new Item(blockId, InventoryType.BLOCK);
       long now = System.currentTimeMillis();
       if (peer.isFastForwardPeer()) {
@@ -111,6 +114,7 @@ public class BlockMsgHandler implements TronMsgHandler {
     }
   }
 
+  //处理广播接收到的block
   private void processBlock(PeerConnection peer, BlockCapsule block) throws P2pException {
     BlockId blockId = block.getBlockId();
     if (!tronNetDelegate.containBlock(block.getParentBlockId())) {
@@ -126,17 +130,24 @@ public class BlockMsgHandler implements TronMsgHandler {
       return;
     }
 
+    /**
+     * 判断是否是正在产块SR节点产的块
+     * 如果是   则先广播  再处理区块
+     * 如果不是  则先处理区块  再广播
+     */
     boolean flag = tronNetDelegate.validBlock(block);
     if (flag) {
       broadcast(new BlockMessage(block));
     }
 
     try {
+      //区块入库逻辑
       tronNetDelegate.processBlock(block, false);
       if (!flag) {
         broadcast(new BlockMessage(block));
       }
 
+      //检查收到同重复块的逻辑，打点记录展示
       witnessProductBlockService.validWitnessProductTwoBlock(block);
 
       tronNetDelegate.getActivePeer().forEach(p -> {

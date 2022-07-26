@@ -50,6 +50,11 @@ public class ChainInventoryMsgHandler implements TronMsgHandler {
       return;
     }
 
+    /**
+     * 如果对方的链发生了链分叉  则会导致 peer.getSyncBlockToFetch().peekLast() 和 blockIdWeGet.peekFirst()  不一致的情况
+     * 我们依次去掉SyncBlockToFetch队列的末位元素 直至我们的SyncBlockToFetch队列  和 对方发来的 blockIdWeGet列表首位相接
+     * 对方链分叉的场景  对方链分叉会导致我们的bothhave 出现在对方的分叉链上， 需要我们同步对方的主链
+     */
     while (!peer.getSyncBlockToFetch().isEmpty()) {
       if (peer.getSyncBlockToFetch().peekLast().equals(blockIdWeGet.peekFirst())) {
         break;
@@ -62,10 +67,15 @@ public class ChainInventoryMsgHandler implements TronMsgHandler {
     peer.setRemainNum(chainInventoryMessage.getRemainNum());
     peer.getSyncBlockToFetch().addAll(blockIdWeGet);
 
+    /**
+     * 加锁的原因是同步区块的线程会同时处理peer.getSyncBlockToFetch()队列，
+     * 如果同步区块的线程 删除了SyncBlockToFetch队列的头块，会导致本线程判断永远卡死在这  没法继续执行
+     */
     synchronized (tronNetDelegate.getBlockLock()) {
       while (!peer.getSyncBlockToFetch().isEmpty() && tronNetDelegate
           .containBlock(peer.getSyncBlockToFetch().peek())) {
         try {
+          //如果部分块已经同步  则更新BothHave  并删除SyncBlockToFetch队列中的这部分块
           BlockId blockId = peer.getSyncBlockToFetch().pop();
           peer.setBlockBothHave(blockId);
           logger.info("Block {} from {} is processed",
@@ -78,9 +88,11 @@ public class ChainInventoryMsgHandler implements TronMsgHandler {
       }
     }
 
+    //在 SyncBlockToFetch队列 大于2000时开始同步区块   （因为每次最多同步2000个块，所以队列的大小最多是4000）
     if ((chainInventoryMessage.getRemainNum() == 0 && !peer.getSyncBlockToFetch().isEmpty())
         || (chainInventoryMessage.getRemainNum() != 0
         && peer.getSyncBlockToFetch().size() > NetConstants.SYNC_FETCH_BATCH_NUM)) {
+      //开始发送FETCH_INV_DATA获取block
       syncService.setFetchFlag(true);
     } else {
       syncService.syncNext(peer);

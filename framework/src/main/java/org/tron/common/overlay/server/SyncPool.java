@@ -232,6 +232,7 @@ public class SyncPool {
         activePeersCount.incrementAndGet();
       }
       activePeers.add(peerConnection);
+      //activePeers 排序  用于FETCH_ENV_DATA 时直接获取延迟最低的节点
       activePeers
           .sort(Comparator.comparingDouble(
               c -> c.getNodeStatistics().pingMessageLatency.getAvg()));

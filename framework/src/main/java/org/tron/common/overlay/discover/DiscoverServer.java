@@ -105,6 +105,7 @@ public class DiscoverServer {
         logger.info("Discovery server started, bind port {}", port);
 
         channel.closeFuture().sync();
+        //服务没有停止的话  Discover server异常终止时  5s钟重启
         if (shutdown) {
           logger.info("Shutdown discovery server");
           break;

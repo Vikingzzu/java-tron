@@ -53,16 +53,19 @@ public class PeerConnection extends Channel {
 
   @Setter
   @Getter
+  //收到的广播队列
   private Cache<Item, Long> advInvReceive = CacheBuilder.newBuilder().maximumSize(invCacheSize)
       .expireAfterWrite(1, TimeUnit.HOURS).recordStats().build();
 
   @Setter
   @Getter
+  //发送广播队列
   private Cache<Item, Long> advInvSpread = CacheBuilder.newBuilder().maximumSize(invCacheSize)
       .expireAfterWrite(1, TimeUnit.HOURS).recordStats().build();
 
   @Setter
   @Getter
+  //发送 fetch_env_data消息的集合
   private Map<Item, Long> advInvRequest = new ConcurrentHashMap<>();
 
   @Setter
@@ -86,12 +89,14 @@ public class PeerConnection extends Channel {
   private Deque<BlockId> syncBlockToFetch = new ConcurrentLinkedDeque<>();
   @Setter
   @Getter
+  //发送FETCH_INV_DATA的block集合
   private Map<BlockId, Long> syncBlockRequested = new ConcurrentHashMap<>();
   @Setter
   @Getter
   private Pair<Deque<BlockId>, Long> syncChainRequested = null;
   @Setter
   @Getter
+  //区块入库队列
   private Set<BlockId> syncBlockInProcess = new HashSet<>();
   @Setter
   @Getter

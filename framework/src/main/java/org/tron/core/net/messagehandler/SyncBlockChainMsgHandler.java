@@ -35,6 +35,7 @@ public class SyncBlockChainMsgHandler implements TronMsgHandler {
 
     List<BlockId> summaryChainIds = syncBlockChainMessage.getBlockIds();
 
+    //每次最多同步2000个块
     LinkedList<BlockId> blockIds = getLostBlockIds(summaryChainIds);
 
     if (blockIds.size() == 0) {

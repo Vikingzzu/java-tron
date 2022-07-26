@@ -755,6 +755,7 @@ public class Manager {
         throw new ValidateSignatureException("trans sig validate failed");
       }
 
+      //获取db manager
       synchronized (this) {
         if (isShieldedTransaction(trx.getInstance())
             && shieldedTransInPendingCounts.get() >= shieldedTransInPendingMaxCounts) {

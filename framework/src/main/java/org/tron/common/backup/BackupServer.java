@@ -38,6 +38,9 @@ public class BackupServer {
     this.backupManager = backupManager;
   }
 
+  /**
+   * 同步到最新块时开启backupServer
+   */
   public void initServer() {
     if (port > 0 && commonParameter.getBackupMembers().size() > 0) {
       new Thread(() -> {

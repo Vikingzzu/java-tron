@@ -105,6 +105,7 @@ public class TronNetDelegate {
   @Setter
   private volatile boolean  test = false;
 
+  //最近收到的100个块id
   private Cache<BlockId, Long> freshBlockId = CacheBuilder.newBuilder()
           .maximumSize(blockIdCacheSize).expireAfterWrite(1, TimeUnit.HOURS)
           .recordStats().build();
@@ -216,8 +217,10 @@ public class TronNetDelegate {
   }
 
   public void processBlock(BlockCapsule block, boolean isSync) throws P2pException {
+    //开发测试用  数据库停止到指定高度
     if (!hitDown && dbManager.getLatestSolidityNumShutDown() > 0
         && dbManager.getLatestSolidityNumShutDown() == dbManager.getDynamicPropertiesStore()
+        //获取db中的头块
         .getLatestBlockHeaderNumberFromDB()) {
 
       logger.info("begin shutdown, currentBlockNum:{}, DbBlockNum:{} ,solidifiedBlockNum:{}.",
@@ -225,6 +228,7 @@ public class TronNetDelegate {
           dbManager.getDynamicPropertiesStore().getLatestBlockHeaderNumberFromDB(),
           dbManager.getDynamicPropertiesStore().getLatestSolidifiedBlockNum());
       hitDown = true;
+      //程序退出
       LockSupport.unpark(hitThread);
       return;
     }
@@ -235,6 +239,7 @@ public class TronNetDelegate {
     synchronized (blockLock) {
       try {
         if (freshBlockId.getIfPresent(blockId) == null) {
+          //新收到的块高小于头块块高   发生切链
           if (block.getNum() <= getHeadBlockId().getNum()) {
             logger.warn("Receive a fork block {} witness {}, head {}",
                 block.getBlockId().getString(),
@@ -251,8 +256,10 @@ public class TronNetDelegate {
               MetricKeys.Histogram.BLOCK_PROCESS_LATENCY, String.valueOf(isSync));
           dbManager.pushBlock(block);
           Metrics.histogramObserve(timer);
+          //缓存最近收到的块id
           freshBlockId.put(blockId, System.currentTimeMillis());
           logger.info("Success process block {}.", blockId.getString());
+          //同步到最新块时开启backupServer
           if (!backupServerStartFlag
               && System.currentTimeMillis() - block.getTimeStamp() < BLOCK_PRODUCED_INTERVAL) {
             backupServerStartFlag = true;

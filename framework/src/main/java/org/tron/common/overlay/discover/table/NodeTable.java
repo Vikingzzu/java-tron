@@ -48,6 +48,11 @@ public class NodeTable {
     }
   }
 
+  /**
+   * k表中添加新的node
+   * 返回null 则代表添加成功 table没有满
+   * 返回不为null 则代表table满了  返回table中最早的node
+   */
   public synchronized Node addNode(Node n) {
     NodeEntry e = new NodeEntry(node.getId(), n);
     if (nodes.contains(e)) {
@@ -131,6 +136,7 @@ public class NodeTable {
     return nodes;
   }
 
+  //找出离目标节点最近的16个 真实 node id节点
   public synchronized List<Node> getClosestNodes(byte[] targetId) {
     List<NodeEntry> closestEntries = getAllNodes();
     List<Node> closestNodes = new ArrayList<>();

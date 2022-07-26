@@ -28,6 +28,7 @@ public class RelayService {
 
   private int maxFastForwardNum = Args.getInstance().getMaxFastForwardNum();
 
+  //获取下一个sr排序集合
   private Set<ByteString> getNextWitnesses(ByteString key, Integer count) {
     List<ByteString> list = chainBaseManager.getWitnessScheduleStore().getActiveWitnesses();
     int index = list.indexOf(key);
@@ -41,6 +42,7 @@ public class RelayService {
     return set;
   }
 
+  //向后面的SR列表广播block
   public void broadcast(BlockMessage msg) {
     Set<ByteString> witnesses = getNextWitnesses(
             msg.getBlockCapsule().getWitnessAddress(), maxFastForwardNum);

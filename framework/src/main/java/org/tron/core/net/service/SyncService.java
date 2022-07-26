@@ -44,10 +44,13 @@ public class SyncService {
   @Autowired
   private PbftDataSyncHandler pbftDataSyncHandler;
 
+  //收到BLOCK消息异步处理集合
   private Map<BlockMessage, PeerConnection> blockWaitToProcess = new ConcurrentHashMap<>();
 
+  //收到BLOCK消息
   private Map<BlockMessage, PeerConnection> blockJustReceived = new ConcurrentHashMap<>();
 
+  //发送FEV_INV_DATA的block缓存结合
   private Cache<BlockId, Long> requestBlockIds = CacheBuilder.newBuilder().maximumSize(10_000)
       .expireAfterWrite(1, TimeUnit.HOURS).initialCapacity(10_000)
       .recordStats().build();
@@ -57,8 +60,16 @@ public class SyncService {
   private ScheduledExecutorService blockHandleExecutor = Executors
       .newSingleThreadScheduledExecutor();
 
+  /**
+   * 出发场景是收到FETCH_ENV_DATA返回的Block消息时触发
+   */
   private volatile boolean handleFlag = false;
 
+  /**
+   * 有三个触发逻辑
+   * 1.收到ChainInventoryMsgHandler消息后，把要同步的块放入SyncBlockToFetch队列大于2000时触发
+   * 2.发送FETCH_ENV_DATA 返回的Block消息收到后，判断peer.isIdle 切不需要在fetch区块时 触发
+   */
   @Setter
   private volatile boolean fetchFlag = false;
 
@@ -75,7 +86,7 @@ public class SyncService {
       }
     }, 10, 1, TimeUnit.SECONDS);
 
-    //定期处理区块
+    //定期处理同步区块
     blockHandleExecutor.scheduleWithFixedDelay(() -> {
       try {
         if (handleFlag) {
@@ -118,7 +129,9 @@ public class SyncService {
     }
   }
 
+  //主动发送fetch_env_data获取的block处理逻辑
   public void processBlock(PeerConnection peer, BlockMessage blockMessage) {
+    //加锁的原因是 另一个线程handleSyncBlock逻辑 会把blockJustReceived 放置到 blockWaitToProcess中，并清空blockJustReceived
     synchronized (blockJustReceived) {
       blockJustReceived.put(blockMessage, peer);
     }
@@ -210,6 +223,7 @@ public class SyncService {
               requestBlockIds.put(blockId, System.currentTimeMillis());
               peer.getSyncBlockRequested().put(blockId, System.currentTimeMillis());
               send.get(peer).add(blockId);
+              //每个peer 每次最多获取100个block
               if (send.get(peer).size() >= MAX_BLOCK_FETCH_PER_PEER) {
                 break;
               }
@@ -224,8 +238,10 @@ public class SyncService {
     });
   }
 
+  //处理发送FETCH_ENV_DATA消息返回的Block消息的逻辑
   private synchronized void handleSyncBlock() {
 
+    //加锁的原因是其他线程会同时往blockJustReceived中塞数据
     synchronized (blockJustReceived) {
       blockWaitToProcess.putAll(blockJustReceived);
       blockJustReceived.clear();
@@ -236,15 +252,17 @@ public class SyncService {
     while (isProcessed[0]) {
 
       isProcessed[0] = false;
-
+      //加锁的目的是为了防止其他线程同时改变 SyncBlockToFetch 和 blockWaitToProcess
       synchronized (tronNetDelegate.getBlockLock()) {
         blockWaitToProcess.forEach((msg, peerConnection) -> {
+          //在区块入库之前检查peer是否断开，如果断开 有可能这个节点时坏节点   抛弃它发给我的区块
           if (peerConnection.isDisconnect()) {
             blockWaitToProcess.remove(msg);
             invalid(msg.getBlockId());
             return;
           }
           final boolean[] isFound = {false};
+          //找到所有peer的SyncBlockToFetch中已接收的block  并删除
           tronNetDelegate.getActivePeer().stream()
               .filter(peer -> msg.getBlockId().equals(peer.getSyncBlockToFetch().peek()))
               .forEach(peer -> {
@@ -255,6 +273,7 @@ public class SyncService {
           if (isFound[0]) {
             blockWaitToProcess.remove(msg);
             isProcessed[0] = true;
+            //同步区块入库
             processSyncBlock(msg.getBlockCapsule());
           }
         });
@@ -262,6 +281,7 @@ public class SyncService {
     }
   }
 
+  //同步区块入库
   private void processSyncBlock(BlockCapsule block) {
     boolean flag = true;
     BlockId blockId = block.getBlockId();

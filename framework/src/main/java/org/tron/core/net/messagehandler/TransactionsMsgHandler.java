@@ -56,6 +56,7 @@ public class TransactionsMsgHandler implements TronMsgHandler {
     smartContractExecutor.shutdown();
   }
 
+  //交易队列大于50000即为busy
   public boolean isBusy() {
     return queue.size() + smartContractQueue.size() > MAX_TRX_SIZE;
   }
