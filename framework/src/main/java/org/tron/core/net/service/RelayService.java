@@ -26,6 +26,7 @@ public class RelayService {
   @Autowired
   private TronNetDelegate tronNetDelegate;
 
+  //默认值是3
   private int maxFastForwardNum = Args.getInstance().getMaxFastForwardNum();
 
   //获取下一个sr排序集合
