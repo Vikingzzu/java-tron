@@ -35,7 +35,7 @@ import org.tron.protos.Protocol.ReasonCode;
 public class ChannelManager {
 
   /**
-   * 握手成功加入activePeers       ChannelManager(190)
+   * 握手成功加入activePeers       ChannelManager(198)
    * ChannelManager.activePeers.size = SyncPool.activePeersCount + SyncPool.passivePeersCount
    */
   private final Map<ByteArrayWrapper, Channel> activePeers = new ConcurrentHashMap<>();
