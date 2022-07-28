@@ -69,7 +69,7 @@ public class ChainInventoryMsgHandler implements TronMsgHandler {
 
     /**
      * 加锁的原因是同步区块的线程会同时处理peer.getSyncBlockToFetch()队列，
-     * 如果同步区块的线程 删除了SyncBlockToFetch队列的头块，会导致本线程判断永远卡死在这  没法继续执行
+     * 如果同步区块的线程   没法继续执行
      */
     synchronized (tronNetDelegate.getBlockLock()) {
       while (!peer.getSyncBlockToFetch().isEmpty() && tronNetDelegate

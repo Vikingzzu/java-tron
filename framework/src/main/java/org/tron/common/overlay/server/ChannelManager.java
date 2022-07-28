@@ -78,7 +78,7 @@ public class ChannelManager {
    * 1. 接收处理区块过程中，快速转发节点不校验 block请求，block大小，接收block时间  BlockMsgHandler(63)
    * 2. 广播过程汇总，快速转发节点不广播交易，只广播区块，走fastsend 直接发送
    * AdvService.sendInv(375)   BlockMsgHandler.broadcast(155)
-   * 3. 中心转发节点不接收交易，因为不发送交易的 FETCH_ENV_DATA 消息  AdvService.sendInv(358)
+   * 3. 中心转发节点不接收交易，因为不发送交易的 消息  AdvService.sendInv(358)
    * 4. 产块的SR节点握手时 会主动连接 fastForwardNodes节点      FastForward.fillHelloMessage(87)
    * 5. 中心转发节点只能连接正在产块的SR节点(收到握手消息时校验)    HandshakeHandler(160) FastForward.checkHelloMessage(105)
    * 6. fastforward节点 不执行节点发现逻辑  DiscoverServer !parameter.isFastForward(65)

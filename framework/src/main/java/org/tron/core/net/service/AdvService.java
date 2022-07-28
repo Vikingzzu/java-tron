@@ -285,6 +285,7 @@ public class AdvService {
         return;
       }
       invToFetch.forEach((item, time) -> {
+        //切链，GC引起的time可能会超过15s
         //超过15s 不再fetch
         if (time < now - MSG_CACHE_DURATION_IN_BLOCKS * BLOCK_PRODUCED_INTERVAL) {
           logger.info("This obj is too late to fetch, type: {} hash: {}.", item.getType(),
